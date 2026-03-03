@@ -1,0 +1,51 @@
+# Flutter
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+
+# Node.js Backend
+backend/node_modules/
+backend/dist/
+backend/uploads/
+backend/.env
+
+# Android
+android/.gradle/
+android/local.properties
+
+# iOS
+ios/Pods/
+
+# General
+.env
+.DS_Store
+*.zip
+logcat.txt
+logcat2.txt
+logcat_crash.txt
+logcat_crash_utf8.txt
+analysis_results.txt
+analyze_output.txt
+analyze_output_utf8.txt
+build_error.txt
+crash_isolated.txt
+crash_trace.txt
+current_errors.txt
+devices.txt
+errors_clean.txt
+errors_utf8.txt
+final_analysis_results.txt
+pub_errors.txt
+pub_errors_2.txt
+pub_errors_3.txt
+pub_get_error.txt
+run_output.txt
+run_output_2.txt
+run_output_3.txt
+test_output.txt
+test_output_2.txt
+test_output_3.txt
+test_output_4.txt

@@ -1,0 +1,90 @@
+name: pri_vault
+description: "PriVault – Zero-knowledge privacy-first encrypted cloud storage & collaboration."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- Core ---
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+  go_router: ^14.8.1
+
+  # --- HTTP ---
+  http: ^1.2.2
+
+  # --- Encryption & Security ---
+  cryptography: ^2.7.0
+  flutter_secure_storage: ^9.2.4
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  crypto: ^3.0.6
+  pointycastle: ^4.0.0
+
+  # --- OCR (CamScanner BR-21) ---
+  google_mlkit_text_recognition: any
+
+  # --- UI & Media ---
+  flutter_animate: ^4.5.2
+  lottie: ^3.3.1
+  photo_view: ^0.15.0
+  pdfx: ^2.8.0
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+
+  # --- File & Media Pickers ---
+  file_picker: ^8.1.7
+  image_picker: ^1.1.2
+  camera: ^0.11.0+2
+
+  # --- Payments ---
+  in_app_purchase: ^3.2.0
+
+  # --- Utilities ---
+  connectivity_plus: ^6.1.1
+  path_provider: ^2.1.5
+  uuid: ^4.5.1
+  intl: ^0.20.2
+  shared_preferences: ^2.3.5
+  flutter_dotenv: ^5.2.1
+  image: ^4.5.3
+  mime: ^2.0.0
+  collection: any
+  equatable: ^2.0.7
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  local_auth: ^2.3.0
+  percent_indicator: ^4.2.3
+  flutter_svg: ^2.0.17
+  share_plus: ^10.1.4
+  url_launcher: ^6.3.1
+  permission_handler: ^11.3.1
+  workmanager: ^0.9.0+3
+  flutter_local_notifications: ^18.0.1
+  csv: ^6.0.0
+  pdf: ^3.11.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.4.0
+  freezed: ^2.5.2
+  json_serializable: ^6.8.0
+  hive_generator: ^2.0.1
+  mockito: ^5.4.4
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - .env
