@@ -191,7 +191,8 @@ router.post('/forgot-password', async (req: Request, res: Response): Promise<voi
                 [userId, otp, 'password_reset', expiresAt]
             );
 
-            try { await sendPasswordResetEmail(email, otp); } catch (emailErr) { console.error('Password reset email send failed:', emailErr); }
+            // Fire-and-forget: don't block the response waiting for email delivery
+            sendPasswordResetEmail(email, otp).catch((emailErr) => console.error('Password reset email send failed:', emailErr));
         }
 
         res.json({ message: 'If an account with that email exists, a reset code has been sent.' });

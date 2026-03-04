@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   code TEXT NOT NULL,
-  type TEXT NOT NULL DEFAULT 'email' CHECK (type IN ('email', 'sms')),
+  type TEXT NOT NULL DEFAULT 'email' CHECK (type IN ('email', 'sms', 'password_reset')),
   expires_at TIMESTAMPTZ NOT NULL,
   used BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
