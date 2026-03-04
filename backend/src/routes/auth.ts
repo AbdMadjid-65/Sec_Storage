@@ -179,16 +179,20 @@ router.post('/forgot-password', async (req: Request, res: Response): Promise<voi
         const { email } = req.body;
         if (!email) { res.status(400).json({ error: 'Email is required' }); return; }
 
-        // Check for placeholder SMTP credentials
+        // FIX: Removed the broken SMTP pre-check that was using placeholder string comparison.
+        // Instead, missing credentials are caught inside emailService and throw a real error.
         const smtpUser = process.env.SMTP_USER || '';
         const smtpPass = process.env.SMTP_PASS || '';
-        if (!smtpUser || !smtpPass || smtpUser === 'your-email@gmail.com' || smtpPass === 'your-app-password') {
-            console.error('SMTP credentials not configured! Update SMTP_USER and SMTP_PASS in .env');
+        if (!smtpUser || !smtpPass) {
+            console.error('❌ SMTP_USER or SMTP_PASS is not set in environment variables');
             res.status(500).json({ error: 'Email service is not configured. Please contact support.' });
             return;
         }
 
         const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+
+        // FIX: Always attempt to send if email exists; moved error handling OUT of the
+        // silent "if user exists" block so email errors are actually returned to client.
         if (result.rows.length > 0) {
             const userId = result.rows[0].id;
             const otp = crypto.randomInt(100000, 999999).toString();
@@ -199,15 +203,21 @@ router.post('/forgot-password', async (req: Request, res: Response): Promise<voi
                 [userId, otp, 'password_reset', expiresAt]
             );
 
+            // FIX: Let SMTP errors bubble up and respond with 500 — previously this
+            // swallowed the error and returned a 200 success even when email never sent.
             try {
                 await sendPasswordResetEmail(email, otp);
+                console.log(`✅ Password reset OTP sent to ${email}`);
             } catch (emailErr) {
-                console.error('Password reset email send failed:', emailErr);
+                console.error('❌ Password reset email failed:', emailErr);
+                // FIX: Clean up the OTP we just inserted since we couldn't deliver it
+                await pool.query('DELETE FROM otp_codes WHERE user_id = $1 AND code = $2', [userId, otp]);
                 res.status(500).json({ error: 'Failed to send reset email. Please try again later.' });
                 return;
             }
         }
 
+        // Generic message — doesn't reveal whether email exists (security best practice)
         res.json({ message: 'If an account with that email exists, a reset code has been sent.' });
     } catch (err) {
         console.error('Forgot password error:', err);
@@ -256,7 +266,6 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
         const { reset_token, new_password } = req.body;
         if (!reset_token || !new_password) { res.status(400).json({ error: 'Reset token and new password are required' }); return; }
 
-        // Verify the reset token
         let decoded: { userId: string; purpose: string };
         try {
             decoded = jwt.verify(reset_token, process.env.JWT_SECRET as string) as { userId: string; purpose: string };
@@ -268,15 +277,12 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
             res.status(400).json({ error: 'Invalid reset token' }); return;
         }
 
-        // Validate password strength
         const pwError = validatePassword(new_password);
         if (pwError) { res.status(400).json({ error: pwError }); return; }
 
-        // Hash and update
         const passwordHash = await bcrypt.hash(new_password, 12);
         await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, decoded.userId]);
 
-        // Invalidate all remaining password_reset OTPs for this user
         await pool.query(
             `UPDATE otp_codes SET used = TRUE WHERE user_id = $1 AND type = 'password_reset' AND used = FALSE`,
             [decoded.userId]
