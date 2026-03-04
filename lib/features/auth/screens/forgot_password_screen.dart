@@ -53,7 +53,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           backgroundColor: PriVaultColors.success,
         ),
       );
-      context.go(AppRoutes.resetPassword, extra: email);
+      // Only navigate to reset screen on success
+      if (context.mounted) {
+        context.go(AppRoutes.resetPassword, extra: email);
+      }
     }
   }
 

@@ -179,7 +179,15 @@ router.post('/forgot-password', async (req: Request, res: Response): Promise<voi
         const { email } = req.body;
         if (!email) { res.status(400).json({ error: 'Email is required' }); return; }
 
-        // Always return success to prevent email enumeration
+        // Check for placeholder SMTP credentials
+        const smtpUser = process.env.SMTP_USER || '';
+        const smtpPass = process.env.SMTP_PASS || '';
+        if (!smtpUser || !smtpPass || smtpUser === 'your-email@gmail.com' || smtpPass === 'your-app-password') {
+            console.error('SMTP credentials not configured! Update SMTP_USER and SMTP_PASS in .env');
+            res.status(500).json({ error: 'Email service is not configured. Please contact support.' });
+            return;
+        }
+
         const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
         if (result.rows.length > 0) {
             const userId = result.rows[0].id;
@@ -191,8 +199,13 @@ router.post('/forgot-password', async (req: Request, res: Response): Promise<voi
                 [userId, otp, 'password_reset', expiresAt]
             );
 
-            // Fire-and-forget: don't block the response waiting for email delivery
-            sendPasswordResetEmail(email, otp).catch((emailErr) => console.error('Password reset email send failed:', emailErr));
+            try {
+                await sendPasswordResetEmail(email, otp);
+            } catch (emailErr) {
+                console.error('Password reset email send failed:', emailErr);
+                res.status(500).json({ error: 'Failed to send reset email. Please try again later.' });
+                return;
+            }
         }
 
         res.json({ message: 'If an account with that email exists, a reset code has been sent.' });

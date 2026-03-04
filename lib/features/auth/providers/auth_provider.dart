@@ -182,10 +182,11 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading, error: null);
     try {
       final authService = _ref.read(authServiceProvider);
-      await authService.forgotPassword(email: email);
+      final result = await authService.forgotPassword(email: email);
       state = AuthState(
         status: AuthStatus.unauthenticated,
-        successMessage: 'If an account with that email exists, a reset code has been sent.',
+        successMessage: result['message'] as String? ??
+            'If an account with that email exists, a reset code has been sent.',
       );
     } catch (e) {
       state = AuthState(
