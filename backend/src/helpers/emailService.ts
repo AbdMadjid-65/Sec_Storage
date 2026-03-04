@@ -1,58 +1,34 @@
 // ============================================================
-// PriVault – Email Service (OTP / Notifications)
+// PriVault – Email Service (uses Resend — works on Render free tier)
 // ============================================================
 
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-// FIX: Do NOT cache the transporter at module level.
-// If env vars aren't loaded yet, or SMTP fails, a cached transporter
-// will silently reuse broken credentials forever.
-function createTransporter() {
-    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const port = parseInt(process.env.SMTP_PORT || '587', 10);
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-
-    if (!user || !pass) {
-        throw new Error('SMTP_USER and SMTP_PASS must be set in environment variables');
-    }
-
-    return nodemailer.createTransport({
-        host,
-        port,
-        // FIX: port 465 = secure:true (SSL), port 587 = secure:false (STARTTLS)
-        // Keep false for 587, but add tls options to handle Render's network
-        secure: port === 465,
-        auth: { user, pass },
-        tls: {
-            // FIX: Render and some cloud providers have strict TLS — this prevents
-            // "self signed certificate" or "UNABLE_TO_VERIFY_LEAF_SIGNATURE" errors
-            rejectUnauthorized: false,
-        },
-        // FIX: Increased timeouts for Render's cold-start latency
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-    });
+function getClient(): Resend {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) throw new Error('RESEND_API_KEY is not set in environment variables');
+    return new Resend(apiKey);
 }
 
 async function sendMail(to: string, subject: string, html: string): Promise<void> {
-    const transporter = createTransporter();
+    const resend = getClient();
 
-    // FIX: Verify connection before sending — gives a clear error instead of silent failure
-    try {
-        await transporter.verify();
-    } catch (verifyErr) {
-        console.error('❌ SMTP connection verification failed:', verifyErr);
-        throw new Error(`SMTP connection failed: ${(verifyErr as Error).message}`);
-    }
+    // Use your verified domain if you have one, otherwise use Resend's test address
+    // NOTE: with onboarding@resend.dev you can only send to your OWN email (the one you signed up with)
+    // To send to ANY email, verify a domain at resend.com/domains
+    const fromAddress = process.env.RESEND_FROM || 'PriVault <onboarding@resend.dev>';
 
-    await transporter.sendMail({
-        from: `"PriVault" <${process.env.SMTP_USER}>`,
+    const { error } = await resend.emails.send({
+        from: fromAddress,
         to,
         subject,
         html,
     });
+
+    if (error) {
+        console.error('❌ Resend email failed:', error);
+        throw new Error(`Email send failed: ${error.message}`);
+    }
 
     console.log(`✅ Email sent to ${to} — subject: "${subject}"`);
 }
