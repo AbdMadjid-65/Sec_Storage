@@ -1,34 +1,40 @@
 // ============================================================
-// PriVault – Email Service (uses Resend — works on Render free tier)
+// PriVault – Email Service (Brevo SMTP — works on Render free tier)
 // ============================================================
 
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-function getClient(): Resend {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) throw new Error('RESEND_API_KEY is not set in environment variables');
-    return new Resend(apiKey);
+function createTransporter() {
+    const host = process.env.SMTP_HOST || 'smtp-relay.brevo.com';
+    const port = parseInt(process.env.SMTP_PORT || '587', 10);
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+
+    if (!user || !pass) {
+        throw new Error('SMTP_USER and SMTP_PASS must be set in environment variables');
+    }
+
+    return nodemailer.createTransport({
+        host,
+        port,
+        secure: false,
+        auth: { user, pass },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+    });
 }
 
 async function sendMail(to: string, subject: string, html: string): Promise<void> {
-    const resend = getClient();
+    const transporter = createTransporter();
 
-    // Use your verified domain if you have one, otherwise use Resend's test address
-    // NOTE: with onboarding@resend.dev you can only send to your OWN email (the one you signed up with)
-    // To send to ANY email, verify a domain at resend.com/domains
-    const fromAddress = process.env.RESEND_FROM || 'PriVault <onboarding@resend.dev>';
-
-    const { error } = await resend.emails.send({
-        from: fromAddress,
+    await transporter.sendMail({
+        from: `"PriVault" <${process.env.SMTP_USER}>`,
         to,
         subject,
         html,
     });
-
-    if (error) {
-        console.error('❌ Resend email failed:', error);
-        throw new Error(`Email send failed: ${error.message}`);
-    }
 
     console.log(`✅ Email sent to ${to} — subject: "${subject}"`);
 }
