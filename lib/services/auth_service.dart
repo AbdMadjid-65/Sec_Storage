@@ -150,4 +150,31 @@ class AuthService {
     final token = await _api.getToken();
     return token != null;
   }
+
+  /// Request a password-reset OTP code via email.
+  Future<Map<String, dynamic>> forgotPassword({required String email}) async {
+    return await _api.post('/auth/forgot-password', body: {'email': email});
+  }
+
+  /// Verify the OTP code and get a short-lived reset token.
+  Future<Map<String, dynamic>> verifyResetCode({
+    required String email,
+    required String code,
+  }) async {
+    return await _api.post('/auth/verify-reset-code', body: {
+      'email': email,
+      'code': code,
+    });
+  }
+
+  /// Reset the password using the reset token.
+  Future<Map<String, dynamic>> resetPassword({
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    return await _api.post('/auth/reset-password', body: {
+      'reset_token': resetToken,
+      'new_password': newPassword,
+    });
+  }
 }

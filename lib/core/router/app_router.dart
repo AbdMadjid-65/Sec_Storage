@@ -15,6 +15,8 @@ import 'package:pri_vault/ui/widgets/bottom_nav.dart';
 // Auth screens
 import 'package:pri_vault/features/auth/screens/login_screen.dart';
 import 'package:pri_vault/features/auth/screens/signup_screen.dart';
+import 'package:pri_vault/features/auth/screens/forgot_password_screen.dart';
+import 'package:pri_vault/features/auth/screens/reset_password_screen.dart';
 
 // Feature screens
 import 'package:pri_vault/features/dashboard/screens/dashboard_screen.dart';
@@ -35,6 +37,8 @@ class AppRoutes {
   static const String login = '/login';
   static const String signup = '/signup';
   static const String twoFactor = '/two-factor';
+  static const String forgotPassword = '/forgot-password';
+  static const String resetPassword = '/reset-password';
   static const String home = '/home';
   static const String files = '/files';
   static const String sharing = '/sharing';
@@ -64,7 +68,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = token != null;
       final isAuthRoute = state.matchedLocation == AppRoutes.login ||
           state.matchedLocation == AppRoutes.signup ||
-          state.matchedLocation == AppRoutes.twoFactor;
+          state.matchedLocation == AppRoutes.twoFactor ||
+          state.matchedLocation == AppRoutes.forgotPassword ||
+          state.matchedLocation == AppRoutes.resetPassword;
 
       if (!isLoggedIn && !isAuthRoute) return AppRoutes.login;
       if (isLoggedIn && isAuthRoute) return AppRoutes.home;
@@ -76,6 +82,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.login, builder: (_, __) => const LoginScreen()),
       GoRoute(path: AppRoutes.signup, builder: (_, __) => const SignupScreen()),
       GoRoute(path: AppRoutes.twoFactor, builder: (_, __) => const _TwoFactorScreen()),
+      GoRoute(path: AppRoutes.forgotPassword, builder: (_, __) => const ForgotPasswordScreen()),
+      GoRoute(
+        path: AppRoutes.resetPassword,
+        builder: (_, state) {
+          final email = state.extra as String? ?? '';
+          return ResetPasswordScreen(email: email);
+        },
+      ),
 
       // --- Main Shell with Bottom Navigation ---
       ShellRoute(

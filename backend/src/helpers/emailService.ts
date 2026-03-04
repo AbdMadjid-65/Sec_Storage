@@ -38,6 +38,23 @@ export async function sendOtpEmail(to: string, code: string): Promise<void> {
     });
 }
 
+export async function sendPasswordResetEmail(to: string, code: string): Promise<void> {
+    const mail = getTransporter();
+    await mail.sendMail({
+        from: `"PriVault" <${process.env.SMTP_USER}>`,
+        to,
+        subject: 'PriVault – Password Reset Code',
+        html: `
+      <div style="font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto; padding: 24px; border: 1px solid #e0e0e0; border-radius: 12px;">
+        <h2 style="color: #6C63FF;">Password Reset</h2>
+        <p>You requested to reset your PriVault password. Use the code below:</p>
+        <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #6C63FF; padding: 16px 0;">${code}</div>
+        <p style="color: #888; font-size: 12px;">This code expires in 10 minutes. If you didn't request this, ignore this email.</p>
+      </div>
+    `,
+    });
+}
+
 export async function sendNotificationEmail(to: string, subject: string, message: string): Promise<void> {
     const mail = getTransporter();
     await mail.sendMail({

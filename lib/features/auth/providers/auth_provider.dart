@@ -31,26 +31,34 @@ class AuthState {
   final AuthStatus status;
   final Map<String, dynamic>? user;
   final String? pendingUserId; // For 2FA flow
+  final String? resetToken;   // For password reset flow
   final String? error;
+  final String? successMessage;
 
   const AuthState({
     this.status = AuthStatus.initial,
     this.user,
     this.pendingUserId,
+    this.resetToken,
     this.error,
+    this.successMessage,
   });
 
   AuthState copyWith({
     AuthStatus? status,
     Map<String, dynamic>? user,
     String? pendingUserId,
+    String? resetToken,
     String? error,
+    String? successMessage,
   }) =>
       AuthState(
         status: status ?? this.status,
         user: user ?? this.user,
         pendingUserId: pendingUserId ?? this.pendingUserId,
+        resetToken: resetToken ?? this.resetToken,
         error: error,
+        successMessage: successMessage,
       );
 }
 
@@ -167,5 +175,68 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
     final authService = _ref.read(authServiceProvider);
     await authService.signOut();
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  /// Send a password reset OTP to the user's email.
+  Future<void> sendResetCode({required String email}) async {
+    state = state.copyWith(status: AuthStatus.loading, error: null);
+    try {
+      final authService = _ref.read(authServiceProvider);
+      await authService.forgotPassword(email: email);
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        successMessage: 'If an account with that email exists, a reset code has been sent.',
+      );
+    } catch (e) {
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Verify the OTP code and receive a reset token.
+  Future<void> verifyResetCode({
+    required String email,
+    required String code,
+  }) async {
+    state = state.copyWith(status: AuthStatus.loading, error: null);
+    try {
+      final authService = _ref.read(authServiceProvider);
+      final result = await authService.verifyResetCode(
+        email: email,
+        code: code,
+      );
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        resetToken: result['reset_token'] as String?,
+      );
+    } catch (e) {
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Reset the password using the stored reset token.
+  Future<void> resetPassword({required String newPassword}) async {
+    state = state.copyWith(status: AuthStatus.loading, error: null);
+    try {
+      final authService = _ref.read(authServiceProvider);
+      await authService.resetPassword(
+        resetToken: state.resetToken!,
+        newPassword: newPassword,
+      );
+      state = const AuthState(
+        status: AuthStatus.unauthenticated,
+        successMessage: 'Password reset successfully. Please log in.',
+      );
+    } catch (e) {
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        error: e.toString(),
+      );
+    }
   }
 }

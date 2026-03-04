@@ -1,7 +1,7 @@
 // ============================================================
-// PriVault – Login Screen
+// PriVault – Forgot Password Screen
 // ============================================================
-// Handles secure user login with 2FA redirect.
+// Allows user to enter email and request an OTP reset code.
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -12,34 +12,28 @@ import 'package:pri_vault/core/router/app_router.dart';
 import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/features/auth/providers/auth_provider.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class ForgotPasswordScreen extends ConsumerStatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleSendCode() async {
     final email = _emailController.text.trim();
-    final password = _passwordController.text;
+    if (email.isEmpty) return;
 
-    if (email.isEmpty || password.isEmpty) return;
-
-    await ref.read(authStateProvider.notifier).signIn(
-          email: email,
-          password: password,
-        );
+    await ref.read(authStateProvider.notifier).sendResetCode(email: email);
 
     if (!mounted) return;
 
@@ -48,20 +42,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (authState.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${authState.error}'),
-          backgroundColor: Colors.redAccent,
+          content: Text(authState.error!),
+          backgroundColor: PriVaultColors.error,
         ),
       );
-    } else if (authState.status == AuthStatus.requires2FA) {
-      context.go(AppRoutes.twoFactor);
-    } else if (authState.status == AuthStatus.authenticated) {
-      context.go(AppRoutes.home);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authState.successMessage ?? 'Reset code sent!'),
+          backgroundColor: PriVaultColors.success,
+        ),
+      );
+      context.go(AppRoutes.resetPassword, extra: email);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
+    final isLoading = authState.status == AuthStatus.loading;
 
     return Scaffold(
       body: SafeArea(
@@ -70,28 +69,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo
+              // Icon
               Container(
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: PriVaultColors.primary.withValues(alpha: 0.1),
+                  color: PriVaultColors.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Icon(
-                  Icons.shield_rounded,
+                  Icons.lock_reset_rounded,
                   size: 48,
-                  color: PriVaultColors.primary,
+                  color: PriVaultColors.warning,
                 ),
               ),
               const SizedBox(height: 24),
               Text(
-                'Welcome to PriVault',
+                'Reset Your Password',
                 style: Theme.of(context).textTheme.displaySmall,
               ),
               const SizedBox(height: 8),
               Text(
-                'Your zero-knowledge encrypted vault',
+                'Enter your email and we\'ll send you a verification code',
+                textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: PriVaultColors.textSecondary,
                     ),
@@ -105,26 +105,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   labelText: 'Email',
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
-                onSubmitted: (_) => _handleLogin(),
-              ),
-              const SizedBox(height: 16),
-
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Master Password',
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-                onSubmitted: (_) => _handleLogin(),
+                onSubmitted: (_) => _handleSendCode(),
               ),
               const SizedBox(height: 24),
 
               ElevatedButton(
-                onPressed: authState.status == AuthStatus.loading
-                    ? null
-                    : _handleLogin,
-                child: authState.status == AuthStatus.loading
+                onPressed: isLoading ? null : _handleSendCode,
+                child: isLoading
                     ? const SizedBox(
                         width: 20,
                         height: 20,
@@ -133,18 +120,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Unlock Vault'),
+                    : const Text('Send Reset Code'),
               ),
               const SizedBox(height: 16),
 
               TextButton(
-                onPressed: () => context.go(AppRoutes.forgotPassword),
-                child: const Text('Forgot Password?'),
-              ),
-
-              TextButton(
-                onPressed: () => context.go(AppRoutes.signup),
-                child: const Text('Create Account'),
+                onPressed: () => context.go(AppRoutes.login),
+                child: const Text('Back to Login'),
               ),
             ],
           ),
