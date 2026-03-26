@@ -1,0 +1,291 @@
+class _DashboardContent extends ConsumerWidget {
+  final Map<String, dynamic> stats;
+  final Map<String, dynamic>? userProfile;
+
+  const _DashboardContent({required this.stats, this.userProfile});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final storageUsedBytes = stats['storage']['storage_used_bytes'] as int? ?? 0;
+    final storageMaxBytes = stats['storage']['storage_max_bytes'] as int? ?? 3221225472; // 3GB default
+    final storageUsedGB = (storageUsedBytes / (1024 * 1024 * 1024)).toStringAsFixed(1);
+    final storageTotalGB = (storageMaxBytes / (1024 * 1024 * 1024)).toStringAsFixed(0);
+    final usedPercentage = ((storageUsedBytes / storageMaxBytes) * 100).clamp(0, 100).toInt();
+
+    // Map stats to categories roughly based on files vs max
+    final int totalFiles = stats['total_files'] as int? ?? 0;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Optimize Space Banner
+        Container(
+          margin: const EdgeInsets.only(bottom: 24),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366f1), Color(0xFFa855f7), Color(0xFF06b6d4)], // Indigo, purple, cyan
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Optimize your space!', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text('See our tutorial', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+            ],
+          ),
+        ),
+
+        // Statistics Section
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Statistics', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                Text(
+                  '${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year.toString().substring(2)}',
+                  style: const TextStyle(fontSize: 12, color: PriVaultColors.textSecondary),
+                ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('$usedPercentage%', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('Used', style: TextStyle(fontSize: 12, color: PriVaultColors.textSecondary)),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // Circular Chart
+        SizedBox(
+          height: 256,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: const Size(256, 256),
+                painter: _StoragePieChartPainter(),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(storageTotalGB, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const Text('GB', style: TextStyle(fontSize: 14, color: PriVaultColors.textSecondary)),
+                ],
+              ),
+              Positioned(top: 8, right: 48, child: _buildFloatingIcon(Icons.image, [Colors.pink, Colors.pinkAccent])),
+              Positioned(top: 80, right: 16, child: _buildFloatingIcon(Icons.description, [Colors.amber, Colors.orangeAccent])),
+              Positioned(bottom: 80, right: 24, child: _buildFloatingIcon(Icons.videocam, [Colors.lightGreen, Colors.greenAccent])),
+              Positioned(bottom: 32, left: 112, child: _buildFloatingIcon(Icons.music_note, [Colors.cyan, Colors.lightBlueAccent])),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Category Cards Grid
+        // Currently using mock values that resemble the design
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.85,
+          children: [
+            _buildCategoryCard('Pictures', totalFiles > 0 ? totalFiles : 1685, 219, 6, Icons.image, [Colors.pink, Colors.pinkAccent]),
+            _buildCategoryCard('Documents', 1160, 165, 3, Icons.description, [Colors.amber, Colors.orange]),
+            _buildCategoryCard('Videos', 324, 38, -2, Icons.videocam, [Colors.lightGreen, Colors.green]),
+            _buildCategoryCard('Music', 892, 10, 1, Icons.music_note, [Colors.cyan, Colors.lightBlue]),
+          ],
+        ),
+        const SizedBox(height: 100), // Bottom nav padding
+      ],
+    );
+  }
+
+  Widget _buildFloatingIcon(IconData icon, List<Color> colors) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(child: Icon(icon, color: Colors.white, size: 16)),
+    );
+  }
+
+  Widget _buildCategoryCard(String name, int files, int size, int pct, IconData icon, List<Color> gradient) {
+    final bool isUp = pct >= 0;
+    return Container(
+      decoration: BoxDecoration(
+        color: PriVaultColors.surface,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.topRight,
+                  radius: 1.0,
+                  colors: [Colors.white.withValues(alpha: 0.05), Colors.transparent],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(80),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: gradient),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(child: Icon(icon, color: Colors.white)),
+                    ),
+                    const Icon(Icons.more_horiz, color: PriVaultColors.textHint),
+                  ],
+                ),
+                const Spacer(),
+                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('$files Files', style: const TextStyle(fontSize: 12, color: PriVaultColors.textSecondary)),
+                        Text('$size GB', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isUp ? PriVaultColors.primary.withValues(alpha: 0.2) : Colors.redAccent.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isUp ? PriVaultColors.primary.withValues(alpha: 0.3) : Colors.redAccent.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        '${isUp ? '+' : ''}$pct%',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isUp ? Colors.cyanAccent : Colors.redAccent),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoragePieChartPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    
+    final bgPaint = Paint()
+      ..color = PriVaultColors.surface
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 28;
+    canvas.drawCircle(center, 70, bgPaint);
+
+    void drawArc(double r, double strokeW, List<Color> colors, double startAngle, double sweepAngle) {
+      final rect = Rect.fromCircle(center: center, radius: r);
+      final gradient = LinearGradient(colors: colors).createShader(rect);
+      final paint = Paint()
+        ..shader = gradient
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+    }
+
+    final rad = 3.14159 / 180;
+    
+    drawArc(84, 8, [Colors.pink, Colors.pinkAccent], -90 * rad, 180 * rad);
+    drawArc(73, 8, [Colors.amber, Colors.orangeAccent], 45 * rad, 136 * rad);
+    drawArc(62, 8, [Colors.lightGreen, Colors.greenAccent], 180 * rad, 90 * rad);
+    drawArc(51, 8, [Colors.cyan, Colors.blueAccent], 270 * rad, 108 * rad);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ErrorView extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorView({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+          const SizedBox(height: 12),
+          Text(error, textAlign: TextAlign.center, style: const TextStyle(color: PriVaultColors.textSecondary)),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+}

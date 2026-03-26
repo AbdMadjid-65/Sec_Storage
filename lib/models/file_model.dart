@@ -10,7 +10,8 @@ class FileModel {
   final String encryptedName;
   final String mimeType;
   final int sizeBytes;
-  final String storagePath;
+  final String cloudinaryUrl;
+  final String encryptionIv;
   final String? thumbnailPath;
   final bool isFavorite;
   final bool isDeleted;
@@ -27,7 +28,8 @@ class FileModel {
     required this.encryptedName,
     required this.mimeType,
     required this.sizeBytes,
-    required this.storagePath,
+    required this.cloudinaryUrl,
+    required this.encryptionIv,
     this.thumbnailPath,
     this.isFavorite = false,
     this.isDeleted = false,
@@ -39,20 +41,25 @@ class FileModel {
 
   factory FileModel.fromJson(Map<String, dynamic> json) {
     return FileModel(
-      id: json['id'] as String,
-      userId: json['user_id'] as String,
+      id: (json['id'] as String?) ?? '',
+      userId: (json['user_id'] as String?) ?? '',
       folderId: json['folder_id'] as String?,
-      name: json['name'] as String,
-      encryptedName: json['encrypted_name'] as String,
-      mimeType: json['mime_type'] as String,
-      sizeBytes: json['size_bytes'] as int,
-      storagePath: json['storage_path'] as String,
+      name: (json['name'] as String?) ?? 'Unknown',
+      encryptedName: (json['encrypted_name'] as String?) ?? '',
+      mimeType: (json['mime_type'] as String?) ?? 'application/octet-stream',
+      sizeBytes: (json['size_bytes'] as num?)?.toInt() ?? 0,
+      cloudinaryUrl: (json['cloudinary_url'] as String?) ?? '',
+      encryptionIv: (json['encryption_iv'] as String?) ?? '',
       thumbnailPath: json['thumbnail_path'] as String?,
-      isFavorite: json['is_favorite'] as bool? ?? false,
-      isDeleted: json['is_deleted'] as bool? ?? false,
-      version: json['version'] as int? ?? 1,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      isFavorite: (json['is_favorite'] as bool?) ?? false,
+      isDeleted: (json['is_deleted'] as bool?) ?? false,
+      version: (json['version'] as num?)?.toInt() ?? 1,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : DateTime.now(),
       deletedAt: json['deleted_at'] != null
           ? DateTime.parse(json['deleted_at'] as String)
           : null,
@@ -68,7 +75,8 @@ class FileModel {
       'encrypted_name': encryptedName,
       'mime_type': mimeType,
       'size_bytes': sizeBytes,
-      'storage_path': storagePath,
+      'cloudinary_url': cloudinaryUrl,
+      'encryption_iv': encryptionIv,
       'thumbnail_path': thumbnailPath,
       'is_favorite': isFavorite,
       'is_deleted': isDeleted,

@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cryptography/cryptography.dart';
 import 'package:pri_vault/core/encryption/encryption_service.dart';
 import 'package:pri_vault/core/encryption/crypto_utils.dart';
 

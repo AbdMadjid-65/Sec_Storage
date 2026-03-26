@@ -1,9 +1,9 @@
 // ============================================================
-// PriVault – Dark-First Material 3 Theme
+// PriVault – Dark-First Material 3 Theme (QuickScan Redesign)
 // ============================================================
-// Design system inspired by Proton, Bitwarden, and banking apps.
-// Colors: #0F172A background, #1E293B surface, #14B8A6 primary.
-// Typography: Inter font family.
+// Design system mimicking QuickScan app.
+// Colors: Deep dark blue background, vibrant blue interactive elements.
+// Typography: Poppins/Inter font family.
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -14,35 +14,48 @@ class PriVaultColors {
   PriVaultColors._();
 
   // --- Core ---
-  static const Color background = Color(0xFF0F172A);
-  static const Color surface = Color(0xFF1E293B);
-  static const Color surfaceLight = Color(0xFF334155);
-  static const Color primary = Color(0xFF14B8A6);
-  static const Color primaryDark = Color(0xFF0D9488);
-  static const Color secondary = Color(0xFF8B5CF6);
-  static const Color accent = Color(0xFF06B6D4);
+  static const Color background = Color(0xFF0A0A0F); // Deep dark background from Figma
+  static const Color surface = Color(0xFF13131A);   // Surface color for cards, sheets
+  static const Color surfaceLight = Color(0xFF1C1C24);
+  static const Color primary = Color(0xFF6366F1);   // Tailwind Indigo-500
+  static const Color primaryDark = Color(0xFF4F46E5); // Tailwind Indigo-600
+  static const Color secondary = Color(0xFF06B6D4); // Tailwind Cyan-500
+  static const Color accent = Color(0xFFA855F7);    // Tailwind Purple-500
+
+  // --- Gradients (Common in the design) ---
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [Color(0xFF6366F1), Color(0xFF06B6D4)], // Indigo to Cyan
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+  
+  static const LinearGradient secondaryGradient = LinearGradient(
+    colors: [Color(0xFFA855F7), Color(0xFFEC4899)], // Purple to Pink
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
 
   // --- Text ---
-  static const Color textPrimary = Color(0xFFF1F5F9);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textHint = Color(0xFF64748B);
+  static const Color textPrimary = Color(0xFFFFFFFF);
+  static const Color textSecondary = Color(0xFF9CA3AF); // Tailwind Gray-400
+  static const Color textHint = Color(0xFF6B7280);      // Tailwind Gray-500
 
   // --- Status ---
-  static const Color success = Color(0xFF22C55E);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color error = Color(0xFFEF4444);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color success = Color(0xFF10B981); // Emerald-500
+  static const Color warning = Color(0xFFF59E0B); // Amber-500
+  static const Color error = Color(0xFFEF4444);   // Red-500
+  static const Color info = Color(0xFF3B82F6);    // Blue-500
 
   // --- Misc ---
-  static const Color divider = Color(0xFF334155);
-  static const Color cardBorder = Color(0xFF475569);
-  static const Color shimmer = Color(0xFF1E293B);
-  static const Color overlay = Color(0x800F172A);
+  static const Color divider = Color(0xFF1F2937); // Gray-800
+  static const Color cardBorder = Color(0xFF1F2937);
+  static const Color shimmer = Color(0xFF1F2937);
+  static const Color overlay = Color(0x99000000);
 }
 
-/// PriVault text theme using Inter font.
+/// PriVault text theme using Poppins (or Inter) font to match design.
 TextTheme _buildTextTheme() {
-  return GoogleFonts.interTextTheme(
+  return GoogleFonts.poppinsTextTheme(
     const TextTheme(
       displayLarge: TextStyle(
         fontSize: 32,
@@ -136,7 +149,7 @@ ThemeData buildPriVaultTheme() {
     brightness: Brightness.dark,
     colorScheme: const ColorScheme.dark(
       primary: PriVaultColors.primary,
-      onPrimary: PriVaultColors.background,
+      onPrimary: Colors.white,
       secondary: PriVaultColors.secondary,
       onSecondary: Colors.white,
       surface: PriVaultColors.surface,
@@ -170,9 +183,9 @@ ThemeData buildPriVaultTheme() {
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: PriVaultColors.primary,
-        foregroundColor: PriVaultColors.background,
+        foregroundColor: Colors.white,
         minimumSize: const Size(double.infinity, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       ),
     ),
@@ -183,7 +196,7 @@ ThemeData buildPriVaultTheme() {
         foregroundColor: PriVaultColors.primary,
         minimumSize: const Size(double.infinity, 52),
         side: const BorderSide(color: PriVaultColors.primary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
 
@@ -199,23 +212,23 @@ ThemeData buildPriVaultTheme() {
       hintStyle: const TextStyle(color: PriVaultColors.textHint),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: PriVaultColors.divider),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: PriVaultColors.surfaceLight),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: PriVaultColors.divider),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: PriVaultColors.surfaceLight),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: PriVaultColors.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: PriVaultColors.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: PriVaultColors.error, width: 1.5),
       ),
     ),

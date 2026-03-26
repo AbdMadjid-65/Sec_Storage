@@ -1,5 +1,5 @@
 // ============================================================
-// PriVault – Files & Folders Providers (Riverpod)
+// PriVault – Files & Folders Providers (Riverpod + Firebase)
 // ============================================================
 // Provides storage repository, encryption, folder/file data,
 // and the currentFoldersProvider/currentFilesProvider used by
@@ -13,18 +13,31 @@ import 'package:pri_vault/repositories/storage_repository.dart';
 import 'package:pri_vault/models/file_metadata.dart';
 import 'package:pri_vault/models/folder.dart';
 import 'package:pri_vault/services/storage_service.dart';
+import 'package:pri_vault/services/audit_service.dart';
+import 'package:pri_vault/services/notification_service.dart';
 
 /// Storage Repository provider.
 final storageRepositoryProvider = Provider<StorageRepository>((ref) {
-  final api = ref.read(apiClientProvider);
-  final encryption = EncryptionService();
-  return StorageRepository(api, encryption);
+  final firestore = ref.watch(firestoreProvider);
+  final encryption = ref.watch(encryptionServiceProvider);
+  
+  return StorageRepository(firestore, encryption);
 });
 
 /// Storage Service provider.
 final storageServiceProvider = Provider<StorageService>((ref) {
-  final api = ref.read(apiClientProvider);
-  return StorageService(api);
+  final firestore = ref.read(firestoreProvider);
+  return StorageService(firestore);
+});
+
+/// Audit Service provider (BR-16/17).
+final auditServiceProvider = Provider<AuditService>((ref) {
+  final firestore = ref.read(firestoreProvider);
+  return AuditService(firestore);
+});
+
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  return NotificationService(ref.read(firestoreProvider));
 });
 
 /// Encryption service provider.
@@ -54,6 +67,11 @@ final currentFoldersProvider = FutureProvider.family<List<Folder>, String?>((ref
 final currentFilesProvider = FutureProvider.family<List<FileMetadata>, String?>((ref, folderId) async {
   final repo = ref.read(storageRepositoryProvider);
   return repo.getFiles(folderId: folderId);
+});
+
+final folderPathProvider = FutureProvider.family<List<Folder>, String?>((ref, folderId) async {
+  final repo = ref.read(storageRepositoryProvider);
+  return repo.getFolderPath(folderId);
 });
 
 /// Deleted files (trash).

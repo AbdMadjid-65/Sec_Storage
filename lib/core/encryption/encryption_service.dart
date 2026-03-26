@@ -16,12 +16,16 @@
 
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:pri_vault/core/encryption/key_derivation.dart';
 import 'package:pri_vault/core/encryption/crypto_utils.dart';
 
 /// Encryption service for PriVault.
 class EncryptionService {
+  static const int _xchachaNonceLength = 24;
+  static const int _poly1305MacLength = 16;
+
   /// Derive a master key from password and salt using Argon2id.
   Future<Uint8List> deriveMasterKey({
     required String password,
@@ -49,27 +53,8 @@ class EncryptionService {
     required Uint8List plaintext,
     required Uint8List key,
   }) async {
-    final algorithm = Xchacha20.poly1305Aead();
-    final secretKey = SecretKey(key);
-
-    // Generate a 24-byte nonce for XChaCha20
-    final nonce = CryptoUtils.generateNonce(24);
-
-    final secretBox = await algorithm.encrypt(
-      plaintext,
-      secretKey: secretKey,
-      nonce: nonce,
-    );
-
-    final macBytes = secretBox.mac.bytes;
-
-    final result =
-        Uint8List(nonce.length + secretBox.cipherText.length + macBytes.length);
-    result.setAll(0, nonce);
-    result.setAll(nonce.length, secretBox.cipherText);
-    result.setAll(nonce.length + secretBox.cipherText.length, macBytes);
-
-    return result;
+    final sealed = await encryptWithMetadata(plaintext: plaintext, key: key);
+    return sealed.packed;
   }
 
   /// Decrypt ciphertext using XChaCha20-Poly1305.
@@ -77,17 +62,69 @@ class EncryptionService {
     required Uint8List ciphertext,
     required Uint8List key,
   }) async {
+    return decryptWithMetadata(ciphertext: ciphertext, key: key);
+  }
+
+  Future<SealedData> encryptWithMetadata({
+    required Uint8List plaintext,
+    required Uint8List key,
+    Uint8List? nonce,
+  }) async {
+    final algorithm = Xchacha20.poly1305Aead();
+    final secretKey = SecretKey(key);
+    final usedNonce = nonce ?? CryptoUtils.generateNonce(_xchachaNonceLength);
+    if (usedNonce.length != _xchachaNonceLength) {
+      throw ArgumentError('Invalid nonce length: ${usedNonce.length}');
+    }
+
+    final secretBox = await algorithm.encrypt(
+      plaintext,
+      secretKey: secretKey,
+      nonce: usedNonce,
+    );
+
+    final macBytes = Uint8List.fromList(secretBox.mac.bytes);
+    final packed = Uint8List(
+      usedNonce.length + secretBox.cipherText.length + macBytes.length,
+    );
+    packed.setAll(0, usedNonce);
+    packed.setAll(usedNonce.length, secretBox.cipherText);
+    packed.setAll(usedNonce.length + secretBox.cipherText.length, macBytes);
+
+    return SealedData(
+      packed: packed,
+      nonce: Uint8List.fromList(usedNonce),
+      mac: macBytes,
+    );
+  }
+
+  Future<Uint8List> decryptWithMetadata({
+    required Uint8List ciphertext,
+    required Uint8List key,
+    Uint8List? expectedNonce,
+  }) async {
     final algorithm = Xchacha20.poly1305Aead();
     final secretKey = SecretKey(key);
 
-    // Extract nonce (24 bytes for XChaCha20), cipherText, and MAC (16 bytes for Poly1305)
-    if (ciphertext.length < 24 + 16) {
+    if (ciphertext.length < _xchachaNonceLength + _poly1305MacLength) {
       throw Exception('Ciphertext too short');
     }
 
-    final nonce = ciphertext.sublist(0, 24);
-    final coreCipherText = ciphertext.sublist(24, ciphertext.length - 16);
-    final macBytes = ciphertext.sublist(ciphertext.length - 16);
+    final nonce = ciphertext.sublist(0, _xchachaNonceLength);
+    final coreCipherText = ciphertext.sublist(
+      _xchachaNonceLength,
+      ciphertext.length - _poly1305MacLength,
+    );
+    final macBytes = ciphertext.sublist(ciphertext.length - _poly1305MacLength);
+
+    if (expectedNonce != null &&
+        !CryptoUtils.constantTimeEquals(expectedNonce, nonce)) {
+      debugPrint(
+        '[Crypto] Wrong nonce. expected=${CryptoUtils.toBase64(expectedNonce)} '
+        'actual=${CryptoUtils.toBase64(Uint8List.fromList(nonce))}',
+      );
+      throw Exception('Decryption failed: wrong nonce');
+    }
 
     final secretBox = SecretBox(
       coreCipherText,
@@ -102,7 +139,13 @@ class EncryptionService {
       );
       return Uint8List.fromList(plaintext);
     } catch (e) {
-      throw Exception('Decryption failed (authentication/integrity error)');
+      debugPrint(
+        '[Crypto] Decryption failed. key_length=${key.length} '
+        'ciphertext_length=${ciphertext.length} error=$e',
+      );
+      throw Exception(
+        'Decryption failed (key mismatch, corrupted ciphertext, or wrong nonce)',
+      );
     }
   }
 
@@ -164,8 +207,20 @@ class EncryptionService {
 
   /// Reconstruct a key pair from a stored private key.
   Future<SimpleKeyPair> getKeyPairFromPrivateKey(
-      Uint8List privateKeyBytes) async {
+      Uint8List privateKeyBytes,) async {
     final algorithm = X25519();
     return await algorithm.newKeyPairFromSeed(privateKeyBytes);
   }
+}
+
+class SealedData {
+  final Uint8List packed;
+  final Uint8List nonce;
+  final Uint8List mac;
+
+  const SealedData({
+    required this.packed,
+    required this.nonce,
+    required this.mac,
+  });
 }

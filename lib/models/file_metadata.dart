@@ -13,9 +13,10 @@ class FileMetadata with _$FileMetadata {
     required String encryptedName, // Original filename, encrypted
     @Default('application/octet-stream') String mimeType,
     @Default(0) int sizeBytes,
-    required String storagePath,
+    required String cloudinaryUrl,
     String? thumbnailPath,
     @Default(false) bool isFavorite,
+    @Default(false) bool isVaultFile,
     @Default(false) bool isDeleted,
     DateTime? deletedAt,
     @Default(1) int version,

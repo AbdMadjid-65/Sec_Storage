@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isFileOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    function hasSharedAccess(fileId) {
+      return isSignedIn()
+        && exists(
+          /databases/$(database)/documents/sharedAccess/$(fileId + "_" + request.auth.uid)
+        );
+    }
+
+    function hasFileAccess(ownerId, fileId) {
+      return isFileOwner(ownerId) || hasSharedAccess(fileId);
+    }
+
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+
+      match /files/{fileId} {
+        allow read, write: if hasFileAccess(userId, fileId);
+      }
+
+      match /folders/{folderId} {
+        allow read, write: if isFileOwner(userId);
+      }
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.recipientId;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && request.auth.uid == resource.data.recipientId;
+      allow delete: if false;
+    }
+
+    match /shares/{shareId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    match /teams/{teamId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /teamMembers/{memberId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /sharedAccess/{accessId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /comments/{commentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.ownerId is string
+        && request.resource.data.fileId is string
+        && (request.resource.data.ownerId == request.auth.uid
+          || hasSharedAccess(request.resource.data.fileId))
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 1000;
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+  }
+}

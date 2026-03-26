@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/core/encryption/crypto_utils.dart';
-import 'package:pri_vault/features/auth/providers/auth_provider.dart';
+
 import 'package:pri_vault/features/files/providers/files_provider.dart';
 import 'package:pri_vault/features/sharing/providers/sharing_provider.dart';
 import 'package:pri_vault/features/files/screens/file_detail_screen.dart';
@@ -23,8 +23,9 @@ import 'package:pri_vault/models/file_metadata.dart';
 class FilesScreen extends ConsumerStatefulWidget {
   final String? folderId;
   final String? folderName;
+  final String? initialTab;
 
-  const FilesScreen({super.key, this.folderId, this.folderName});
+  const FilesScreen({super.key, this.folderId, this.folderName, this.initialTab});
 
   @override
   ConsumerState<FilesScreen> createState() => _FilesScreenState();
@@ -33,6 +34,14 @@ class FilesScreen extends ConsumerStatefulWidget {
 class _FilesScreenState extends ConsumerState<FilesScreen> {
   final ValueNotifier<double> _uploadProgress = ValueNotifier(0.0);
   bool _isUploading = false;
+  String _viewMode = 'grid';
+  late String _activeTab;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeTab = widget.initialTab ?? 'All';
+  }
 
   Future<void> _handleCreateFolder() async {
     final controller = TextEditingController();
@@ -119,18 +128,26 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
   Widget build(BuildContext context) {
     final foldersAsync = ref.watch(currentFoldersProvider(widget.folderId));
     final filesAsync = ref.watch(currentFilesProvider(widget.folderId));
+    final pathAsync = ref.watch(folderPathProvider(widget.folderId));
 
     return Scaffold(
+      backgroundColor: PriVaultColors.background,
       appBar: AppBar(
-        title: Text(widget.folderName ?? 'My Vault'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        title: Text(
+          widget.folderName ?? 'My Files',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SearchScreen()),
-            ),
-          ),
           PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+            color: PriVaultColors.surfaceLight,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             onSelected: (value) {
               if (value == 'trash') {
                 Navigator.of(context).push(
@@ -142,14 +159,15 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
               const PopupMenuItem(
                 value: 'trash',
                 child: ListTile(
-                  leading: Icon(Icons.delete_outline_rounded),
-                  title: Text('Trash'),
+                  leading: Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  title: Text('Trash', style: TextStyle(color: Colors.redAccent)),
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
             ],
           ),
+          const SizedBox(width: 8),
         ],
         bottom: _isUploading
             ? PreferredSize(
@@ -158,6 +176,8 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
                   valueListenable: _uploadProgress,
                   builder: (_, value, __) => LinearProgressIndicator(
                     value: value > 0 ? value : null,
+                    backgroundColor: Colors.transparent,
+                    valueColor: const AlwaysStoppedAnimation<Color>(PriVaultColors.primary),
                   ),
                 ),
               )
@@ -170,6 +190,183 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
         },
         child: CustomScrollView(
           slivers: [
+            // Header, Search, Tabs
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Search Bar
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SearchScreen()),
+                      ),
+                      child: Container(
+                        height: 52,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: PriVaultColors.surfaceLight,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: PriVaultColors.cardBorder),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.search_rounded, color: PriVaultColors.textHint),
+                            SizedBox(width: 12),
+                            Text(
+                              'Search files...',
+                              style: TextStyle(color: PriVaultColors.textHint, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    pathAsync.when(
+                      data: (path) => path.isEmpty
+                          ? const SizedBox.shrink()
+                          : SizedBox(
+                              height: 30,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemBuilder: (context, index) {
+                                  final folder = path[index];
+                                  final isLast = index == path.length - 1;
+                                  return GestureDetector(
+                                    onTap: isLast
+                                        ? null
+                                        : () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => FilesScreen(
+                                                  folderId: folder.id,
+                                                  folderName: folder.name,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                    child: Text(
+                                      folder.name,
+                                      style: TextStyle(
+                                        color: isLast
+                                            ? Colors.white
+                                            : PriVaultColors.textHint,
+                                        fontSize: 12,
+                                        fontWeight: isLast
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                separatorBuilder: (_, __) => const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 6),
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 14,
+                                    color: PriVaultColors.textHint,
+                                  ),
+                                ),
+                                itemCount: path.length,
+                              ),
+                            ),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Filter Tabs & View Toggle
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: ['All', 'Images', 'Documents', 'Videos', 'Other'].map((tab) {
+                                final isActive = tab == _activeTab;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: InkWell(
+                                    onTap: () => setState(() => _activeTab = tab),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        gradient: isActive ? PriVaultColors.primaryGradient : null,
+                                        color: isActive ? null : PriVaultColors.surfaceLight,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        tab,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: isActive ? Colors.white : PriVaultColors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Row(
+                          children: [
+                            InkWell(
+                              onTap: () => setState(() => _viewMode = 'grid'),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: 40, height: 40,
+                                decoration: BoxDecoration(
+                                  color: _viewMode == 'grid' ? PriVaultColors.primary : PriVaultColors.surfaceLight,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(Icons.grid_view_rounded, size: 20, color: _viewMode == 'grid' ? Colors.white : PriVaultColors.textHint),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => setState(() => _viewMode = 'list'),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: 40, height: 40,
+                                decoration: BoxDecoration(
+                                  color: _viewMode == 'list' ? PriVaultColors.primary : PriVaultColors.surfaceLight,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(Icons.list_rounded, size: 20, color: _viewMode == 'list' ? Colors.white : PriVaultColors.textHint),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+
+            // Folders Header
+            foldersAsync.when(
+              data: (folders) => folders.isEmpty
+                  ? const SliverToBoxAdapter(child: SizedBox.shrink())
+                  : const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        child: Text(
+                          'Folders',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: PriVaultColors.textHint),
+                        ),
+                      ),
+                    ),
+              loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+              error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+            ),
+
             // Folders Section
             foldersAsync.when(
               data: (folders) => folders.isEmpty
@@ -183,7 +380,7 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 3,
+                          childAspectRatio: 1.1,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
                         ),
@@ -209,37 +406,91 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
               ),
             ),
 
+            // Files Header
+            filesAsync.when(
+              data: (files) => files.isEmpty
+                  ? const SliverToBoxAdapter(child: SizedBox.shrink())
+                  : const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        child: Text(
+                          'Files',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: PriVaultColors.textHint),
+                        ),
+                      ),
+                    ),
+              loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+              error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+            ),
+
             // Files Section
             filesAsync.when(
               data: (files) => files.isEmpty && !foldersAsync.hasValue
                   ? _buildEmptyState()
                   : SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) => _FileTile(file: files[index]),
-                          childCount: files.length,
-                        ),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      sliver: _viewMode == 'grid'
+                          ? SliverGrid(
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.85,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) => _FileTile(file: files[index], isGrid: true),
+                                childCount: files.length,
+                              ),
+                            )
+                          : SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _FileTile(file: files[index], isGrid: false),
+                                ),
+                                childCount: files.length,
+                              ),
+                            ),
                     ),
               loading: () => const SliverToBoxAdapter(
                 child: SizedBox.shrink(),
               ),
               error: (err, _) => SliverToBoxAdapter(
                 child: Center(
-                  child: Text('Error: $err'),
+                  child: Text('Error: $err', style: const TextStyle(color: Colors.white)),
                 ),
               ),
             ),
+            const SliverToBoxAdapter(child: SizedBox(height: 120)), // Padding for FAB
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showUploadOptions(context);
-        },
-        child: const Icon(Icons.add_rounded),
+      floatingActionButton: Container(
+        margin: const EdgeInsets.only(bottom: 16, right: 8),
+        child: FloatingActionButton.extended(
+          onPressed: () => _showUploadOptions(context),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          label: const SizedBox.shrink(),
+          icon: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: PriVaultColors.primaryGradient,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: PriVaultColors.primary.withValues(alpha: 0.5),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+          ),
+        ),
       ),
+      floatingActionButtonAnimator: FloatingActionButtonAnimator.scaling,
     );
   }
 
@@ -319,29 +570,45 @@ class _FolderCard extends ConsumerWidget {
         );
       },
       onLongPress: () => _showFolderActions(context, ref),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: PriVaultColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: PriVaultColors.divider),
+          color: PriVaultColors.surfaceLight,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: PriVaultColors.cardBorder),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.folder_rounded, color: Colors.blueAccent),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                folder.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: PriVaultColors.primaryGradient,
+                borderRadius: BorderRadius.circular(16),
               ),
+              child: const Icon(Icons.folder_rounded, color: Colors.white, size: 24),
             ),
-            const Icon(
-              Icons.more_vert_rounded,
-              size: 18,
-              color: PriVaultColors.textSecondary,
+            const Spacer(),
+            Text(
+              folder.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.white,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Folder',
+              style: TextStyle(
+                fontSize: 12,
+                color: PriVaultColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -465,7 +732,8 @@ class _FolderCard extends ConsumerWidget {
 
 class _FileTile extends ConsumerWidget {
   final FileMetadata file;
-  const _FileTile({required this.file});
+  final bool isGrid;
+  const _FileTile({required this.file, this.isGrid = false});
 
   Future<String> _getDecryptedName(WidgetRef ref) async {
     if (file.encryptedName.isEmpty) return 'Untitled File';
@@ -496,33 +764,63 @@ class _FileTile extends ConsumerWidget {
       builder: (context, snapshot) {
         final name = snapshot.data ?? 'Decrypting...';
 
-        return ListTile(
-          leading: Icon(
-            _getFileIcon(name),
-            color: PriVaultColors.primary,
-          ),
-          title: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Row(
-            children: [
-              Text('${(file.sizeBytes / 1024).toStringAsFixed(1)} KB'),
-              if (file.isFavorite) ...[
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.star_rounded,
-                  size: 16,
-                  color: Colors.amber,
-                ),
-              ],
-            ],
-          ),
-          trailing: IconButton(
-            icon: const Icon(Icons.more_vert_rounded),
-            onPressed: () => _showFileActions(context, ref, name),
-          ),
+        if (isGrid) {
+          return InkWell(
+            onTap: snapshot.hasData
+                ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => FileViewerScreen(file: file, displayName: name)))
+                : null,
+            onLongPress: () => _showFileActions(context, ref, name),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: PriVaultColors.surfaceLight,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: PriVaultColors.cardBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [PriVaultColors.primary.withValues(alpha: 0.2), PriVaultColors.secondary.withValues(alpha: 0.05)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Icon(_getFileIcon(name), color: PriVaultColors.primary, size: 32),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: Colors.white),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${(file.sizeBytes / 1024).toStringAsFixed(1)} KB',
+                        style: const TextStyle(fontSize: 10, color: PriVaultColors.textSecondary),
+                      ),
+                      if (file.isFavorite)
+                        const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return InkWell(
           onTap: snapshot.hasData
               ? () => Navigator.of(context).push(
                     MaterialPageRoute(
@@ -533,6 +831,75 @@ class _FileTile extends ConsumerWidget {
                     ),
                   )
               : null,
+          onLongPress: () => _showFileActions(context, ref, name),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            decoration: BoxDecoration(
+              color: PriVaultColors.surfaceLight,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: PriVaultColors.cardBorder),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: PriVaultColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    _getFileIcon(name),
+                    color: PriVaultColors.primary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              color: Colors.white,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            '${(file.sizeBytes / 1024).toStringAsFixed(1)} KB',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: PriVaultColors.textSecondary,
+                            ),
+                          ),
+                          if (file.isFavorite) ...[
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 14,
+                              color: Colors.amber,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.more_vert_rounded, color: PriVaultColors.textHint),
+                  onPressed: () => _showFileActions(context, ref, name),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -577,25 +944,26 @@ class _FileTile extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(
-                Icons.share_rounded,
-                color: PriVaultColors.primary,
+            if (!(file.isVaultFile))
+              ListTile(
+                leading: const Icon(
+                  Icons.share_rounded,
+                  color: PriVaultColors.primary,
+                ),
+                title: const Text('Share'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => ShareDialog(
+                      file: file,
+                      decryptedName: displayName,
+                    ),
+                  );
+                },
               ),
-              title: const Text('Share'),
-              onTap: () {
-                Navigator.pop(ctx);
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => ShareDialog(
-                    file: file,
-                    decryptedName: displayName,
-                  ),
-                );
-              },
-            ),
             ListTile(
               leading: const Icon(Icons.visibility_rounded),
               title: const Text('View / Open'),

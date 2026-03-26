@@ -3,12 +3,12 @@
 // ============================================================
 
 import 'dart:io';
-import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:pri_vault/core/api/api_client.dart';
+
 import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/features/files/providers/files_provider.dart';
 import 'package:pri_vault/features/sharing/providers/sharing_provider.dart';
@@ -100,9 +100,17 @@ class _CamScannerScreenState extends ConsumerState<CamScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('CamScanner')),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Document Scanner',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -110,41 +118,88 @@ class _CamScannerScreenState extends ConsumerState<CamScannerScreen> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _captureImage(ImageSource.camera),
-                    icon: const Icon(Icons.camera_alt_rounded),
-                    label: const Text('Camera'),
+                  child: GestureDetector(
+                    onTap: () => _captureImage(ImageSource.camera),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      decoration: BoxDecoration(
+                        color: PriVaultColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: PriVaultColors.primary.withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: const BoxDecoration(
+                              color: PriVaultColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 28),
+                          ),
+                          const SizedBox(height: 12),
+                          Text('Camera', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _captureImage(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library_rounded),
-                    label: const Text('Gallery'),
+                  child: GestureDetector(
+                    onTap: () => _captureImage(ImageSource.gallery),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      decoration: BoxDecoration(
+                        color: PriVaultColors.surfaceLight,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.transparent),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: PriVaultColors.textHint.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 28),
+                          ),
+                          const SizedBox(height: 12),
+                          Text('Gallery', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 32),
 
             // Image preview
             if (_imageFile != null) ...[
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(_imageFile!, height: 300, fit: BoxFit.cover),
+                borderRadius: BorderRadius.circular(20),
+                child: Image.file(_imageFile!, height: 350, fit: BoxFit.cover),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               // Processing
               if (_isProcessing)
-                const Center(
-                  child: Column(
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: PriVaultColors.surfaceLight,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Column(
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 8),
-                      Text('Recognizing text...', style: TextStyle(color: PriVaultColors.textSecondary)),
+                      CircularProgressIndicator(color: PriVaultColors.primary),
+                      SizedBox(height: 16),
+                      Text('Recognizing text...', style: TextStyle(color: PriVaultColors.textSecondary, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -152,61 +207,79 @@ class _CamScannerScreenState extends ConsumerState<CamScannerScreen> {
               // Extracted text
               if (_extractedText.isNotEmpty && !_isProcessing) ...[
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: PriVaultColors.surfaceLight,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: PriVaultColors.divider),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.text_snippet_rounded, size: 18, color: PriVaultColors.primary),
-                          const SizedBox(width: 8),
-                          Text('Extracted Text', style: Theme.of(context).textTheme.titleSmall),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: PriVaultColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.document_scanner_rounded, size: 20, color: PriVaultColors.primary),
+                          ),
+                          const SizedBox(width: 12),
+                          Text('Extracted Text', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       SelectableText(
                         _extractedText,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontFamily: 'monospace',
                               height: 1.5,
+                              color: Colors.white70,
                             ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
               ],
 
               // Save button
               ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(56),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
                 onPressed: _isSaving ? null : _saveToVault,
                 icon: _isSaving
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.save_rounded),
-                label: Text(_isSaving ? 'Saving...' : 'Encrypt & Save to Files'),
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.check_circle_outline_rounded),
+                label: Text(_isSaving ? 'Encrypting...' : 'Save to Vault', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
+              const SizedBox(height: 40),
             ] else ...[
               // Empty state
               Container(
-                height: 250,
+                height: 280,
                 decoration: BoxDecoration(
                   color: PriVaultColors.surfaceLight,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: PriVaultColors.divider, style: BorderStyle.solid),
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.document_scanner_rounded, size: 64, color: PriVaultColors.primary.withValues(alpha: 0.4)),
-                    const SizedBox(height: 12),
-                    const Text('Scan a document', style: TextStyle(color: PriVaultColors.textSecondary)),
-                    const SizedBox(height: 4),
-                    const Text('Capture, OCR, and encrypt-save', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: PriVaultColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.document_scanner_rounded, size: 64, color: PriVaultColors.primary.withValues(alpha: 0.8)),
+                    ),
+                    const SizedBox(height: 20),
+                    Text('Ready to Scan', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    const Text('Select an option above to begin', style: TextStyle(color: PriVaultColors.textHint)),
                   ],
                 ),
               ),

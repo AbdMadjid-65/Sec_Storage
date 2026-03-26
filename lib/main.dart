@@ -1,16 +1,17 @@
 // ============================================================
 // PriVault – App Entry Point
 // ============================================================
-// Initializes dotenv, Hive, and wraps the app with Riverpod
+// Initializes Firebase, Hive, and wraps the app with Riverpod
 // ProviderScope, GoRouter, and the PriVault dark theme.
 // ============================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 
+import 'package:pri_vault/firebase_options.dart';
 import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/core/router/app_router.dart';
 
@@ -18,6 +19,17 @@ Future<void> main() async {
   try {
     // Ensure Flutter bindings are initialized.
     WidgetsFlutterBinding.ensureInitialized();
+
+    // Initialize Firebase. The Google Services Gradle plugin may have
+    // already auto-initialised the [DEFAULT] app at the native layer,
+    // so we catch and ignore the duplicate-app error.
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } on FirebaseException catch (e) {
+      if (e.code != 'duplicate-app') rethrow;
+    }
 
     // Force dark system UI overlay.
     SystemChrome.setSystemUIOverlayStyle(
@@ -35,16 +47,9 @@ Future<void> main() async {
       DeviceOrientation.portraitDown,
     ]);
 
-    // Load environment variables.
-    try {
-      await dotenv.load(fileName: '.env');
-    } catch (e) {
-      // ignore: avoid_print
-      print('ℹ️ No .env file found. Using default/preview settings.');
-    }
-
     // Initialize Hive for encrypted local caching.
     await Hive.initFlutter();
+    await Hive.openBox('settings');
 
     // Run the app wrapped in Riverpod ProviderScope.
     runApp(const ProviderScope(child: PriVaultApp()));

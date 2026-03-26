@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/core/encryption/crypto_utils.dart';
-import 'package:pri_vault/features/auth/providers/auth_provider.dart';
+
 import 'package:pri_vault/features/files/providers/files_provider.dart';
 import 'package:pri_vault/features/sharing/providers/sharing_provider.dart';
 import 'package:pri_vault/models/file_metadata.dart';
@@ -23,50 +23,61 @@ class TrashScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Trash'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          'Trash',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_forever_rounded),
+            icon: const Icon(Icons.delete_sweep_rounded),
             tooltip: 'Empty Trash',
             onPressed: () => _handleEmptyTrash(context, ref),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: trashAsync.when(
         data: (files) {
           if (files.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.delete_outline_rounded,
-                    size: 80,
-                    color: PriVaultColors.primary.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Trash is empty',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Deleted files appear here for 30 days',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: PriVaultColors.textSecondary,
-                        ),
-                  ),
-                ],
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: PriVaultColors.surfaceLight,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: PriVaultColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.delete_outline_rounded, size: 48, color: PriVaultColors.primary.withValues(alpha: 0.8)),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Trash is Empty', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    const Text('Deleted files appear here for 30 days before being permanently removed.', style: TextStyle(color: PriVaultColors.textHint), textAlign: TextAlign.center),
+                  ],
+                ),
               ),
             );
           }
 
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(deletedFilesProvider),
-            child: ListView.builder(
+            child: ListView.separated(
+              padding: const EdgeInsets.all(24),
               itemCount: files.length,
-              itemBuilder: (context, index) =>
-                  _TrashFileTile(file: files[index]),
+              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              itemBuilder: (context, index) => _TrashFileTile(file: files[index]),
             ),
           );
         },
@@ -156,35 +167,58 @@ class _TrashFileTile extends ConsumerWidget {
       future: _getDecryptedName(ref),
       builder: (context, snapshot) {
         final name = snapshot.data ?? 'Decrypting...';
-        return ListTile(
-          leading: const Icon(
-            Icons.insert_drive_file_rounded,
-            color: Colors.grey,
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: PriVaultColors.surfaceLight,
+            borderRadius: BorderRadius.circular(20),
           ),
-          title: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            'Deleted ${_timeAgo(file.deletedAt)} · '
-            '${(file.sizeBytes / 1024).toStringAsFixed(1)} KB',
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.restore_rounded),
-                tooltip: 'Restore',
-                onPressed: () => _handleRestore(context, ref),
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.delete_forever_rounded,
-                  color: Colors.redAccent,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: PriVaultColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                tooltip: 'Delete permanently',
-                onPressed: () => _handlePermanentDelete(context, ref, name),
+                child: const Icon(Icons.insert_drive_file_rounded, color: PriVaultColors.primary, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Deleted ${_timeAgo(file.deletedAt)} · ${(file.sizeBytes / 1024).toStringAsFixed(1)} KB',
+                      style: const TextStyle(color: PriVaultColors.textSecondary, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    style: IconButton.styleFrom(backgroundColor: PriVaultColors.primary.withValues(alpha: 0.1)),
+                    icon: const Icon(Icons.restore_rounded, color: PriVaultColors.primary),
+                    tooltip: 'Restore',
+                    onPressed: () => _handleRestore(context, ref),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    style: IconButton.styleFrom(backgroundColor: Colors.redAccent.withValues(alpha: 0.1)),
+                    icon: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+                    tooltip: 'Delete permanently',
+                    onPressed: () => _handlePermanentDelete(context, ref, name),
+                  ),
+                ],
               ),
             ],
           ),

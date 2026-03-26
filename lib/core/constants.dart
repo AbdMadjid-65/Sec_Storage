@@ -41,27 +41,36 @@ class CryptoConstants {
   static const int recoveryPhraseWordCount = 24;
 }
 
-/// Storage plan tiers and limits.
+/// Storage plan tiers and limits (BR-04, BR-05).
 class StoragePlans {
   StoragePlans._();
 
-  /// Free tier: 5 GB.
-  static const int freeStorageBytes = 5 * 1024 * 1024 * 1024;
+  /// Free tier: 3 GB (BR-04).
+  static const int freeStorageBytes = 3 * 1024 * 1024 * 1024;
 
-  /// Plus tier: 2 TB.
-  static const int plusStorageBytes = 2 * 1024 * 1024 * 1024 * 1024;
+  /// Premium tier: 20 GB (BR-05).
+  static const int premiumStorageBytes = 20 * 1024 * 1024 * 1024;
 
-  /// Family tier: 10 TB.
-  static const int familyStorageBytes = 10 * 1024 * 1024 * 1024 * 1024;
+  /// Professional tier: Unlimited (BR-05) – represented as 1 TB cap.
+  static const int professionalStorageBytes = 1024 * 1024 * 1024 * 1024;
 
-  /// Plus monthly price.
-  static const double plusMonthlyPrice = 4.99;
+  /// Premium monthly price (BR-05).
+  static const double premiumMonthlyPrice = 19.00;
 
-  /// Plus yearly price.
-  static const double plusYearlyPrice = 49.00;
+  /// Professional monthly price (BR-05).
+  static const double professionalMonthlyPrice = 49.00;
 
-  /// Family monthly price.
-  static const double familyMonthlyPrice = 9.99;
+  /// Returns max storage bytes for a given plan name.
+  static int maxBytesForPlan(String? plan) {
+    switch (plan) {
+      case 'premium':
+        return premiumStorageBytes;
+      case 'professional':
+        return professionalStorageBytes;
+      default:
+        return freeStorageBytes;
+    }
+  }
 }
 
 /// App-level configuration.
@@ -74,8 +83,8 @@ class AppConstants {
   /// Recycle bin auto-purge days.
   static const int recycleBinRetentionDays = 30;
 
-  /// Auto-lock timeout in minutes.
-  static const int autoLockTimeoutMinutes = 5;
+  /// Auto-lock timeout in minutes (BR-11: 2 minutes).
+  static const int autoLockTimeoutMinutes = 2;
 
   /// Maximum chat group size.
   static const int maxGroupChatMembers = 200;

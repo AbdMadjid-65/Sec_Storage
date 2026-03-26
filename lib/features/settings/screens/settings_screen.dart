@@ -3,196 +3,434 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/core/router/app_router.dart';
 import 'package:pri_vault/features/auth/providers/auth_provider.dart';
 import 'package:pri_vault/features/auth/providers/profile_provider.dart';
-import 'package:pri_vault/features/files/providers/files_provider.dart';
+import 'package:pri_vault/features/setup/widgets/plan_selection_sheet.dart';
+import 'package:pri_vault/core/theme/app_theme.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _pauseNotifications = true;
+  bool _darkMode = false;
+
+  @override
+  Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
-    final storageAsync = ref.watch(storageUsageProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          // Profile section
-          profileAsync.when(
-            loading: () => const ListTile(
-              leading: CircleAvatar(child: CircularProgressIndicator(strokeWidth: 2)),
-              title: Text('Loading...'),
+      backgroundColor: PriVaultColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              child: Row(
+                children: [
+                   GestureDetector(
+                     onTap: () => context.pop(),
+                     child: Container(
+                       width: 40,
+                       height: 40,
+                       decoration: BoxDecoration(
+                         color: PriVaultColors.surfaceLight,
+                         borderRadius: BorderRadius.circular(12),
+                         border: Border.all(color: PriVaultColors.cardBorder),
+                       ),
+                       child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+                     ),
+                   ),
+                   const SizedBox(width: 16),
+                   Expanded(
+                     child: Text(
+                       'Settings',
+                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                             fontWeight: FontWeight.w700,
+                             color: Colors.white,
+                           ),
+                     ),
+                   ),
+                ],
+              ),
             ),
-            error: (_, __) => const ListTile(title: Text('Could not load profile')),
-            data: (profile) {
-              if (profile == null) return const SizedBox.shrink();
-              return Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: PriVaultColors.surfaceLight,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: PriVaultColors.divider),
-                ),
-                child: Row(
+            
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: PriVaultColors.primary.withValues(alpha: 0.2),
-                      child: Text(
-                        (profile['email'] as String? ?? '?')[0].toUpperCase(),
-                        style: const TextStyle(fontSize: 24, color: PriVaultColors.primary),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(profile['display_name'] ?? profile['email'] ?? 'User',
-                              style: Theme.of(context).textTheme.titleMedium),
-                          Text(profile['email'] ?? '',
-                              style: const TextStyle(color: PriVaultColors.textSecondary, fontSize: 13)),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    // Profile section
+                    profileAsync.when(
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (profile) {
+                        if (profile == null) return const SizedBox.shrink();
+                        final photoUrl = profile['photoUrl'] as String?;
+                        final displayName = profile['display_name'] as String? ?? 'User';
+                        final username = profile['display_name'] != null 
+                            ? profile['display_name'].toString().replaceAll(' ', '').toLowerCase()
+                            : 'user';
+
+                        return GestureDetector(
+                          onTap: () => context.push(AppRoutes.editProfile),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              color: PriVaultColors.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.indigoAccent.withValues(alpha: 0.1),
+                                  Colors.cyanAccent.withValues(alpha: 0.1),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.indigoAccent.withValues(alpha: 0.2)),
                             ),
-                            child: Text(
-                              (profile['account_type'] as String? ?? 'regular').toUpperCase(),
-                              style: const TextStyle(fontSize: 10, color: PriVaultColors.primary, fontWeight: FontWeight.bold),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: PriVaultColors.primaryGradient,
+                                  ),
+                                  child: ClipOval(
+                                    child: photoUrl != null
+                                        ? Image.network(photoUrl, fit: BoxFit.cover)
+                                        : Center(
+                                            child: Text(
+                                              displayName[0].toUpperCase(),
+                                              style: const TextStyle(fontSize: 32, color: Colors.white, fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        displayName,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          fontSize: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '@$username',
+                                        style: const TextStyle(color: Colors.indigoAccent, fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right_rounded, color: PriVaultColors.textHint, size: 24),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
+
+                    // Group 1: Notifications & General
+                    _SettingsGroup(
+                      children: [
+                        _SettingsRow(
+                          iconBox: const _IconBox(icon: Icons.notifications_off_rounded, color: Colors.indigoAccent),
+                          label: 'Pause notifications',
+                          trailing: CupertinoSwitch(
+                            value: _pauseNotifications,
+                            activeTrackColor: Colors.greenAccent.shade400,
+                            onChanged: (val) => setState(() => _pauseNotifications = val),
+                          ),
+                        ),
+                        const _SettingsDivider(),
+                        _SettingsRow(
+                          iconBox: const _IconBox(icon: Icons.settings_rounded, color: Colors.purpleAccent),
+                          label: 'General settings',
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Group 2: Appearance & Language
+                    _SettingsGroup(
+                      children: [
+                        _SettingsRow(
+                          iconBox: const _IconBox(icon: Icons.dark_mode_rounded, color: Colors.blueAccent),
+                          label: 'Dark mode',
+                          trailing: CupertinoSwitch(
+                            value: _darkMode,
+                            activeTrackColor: Colors.greenAccent.shade400,
+                            onChanged: (val) => setState(() => _darkMode = val),
+                          ),
+                        ),
+                        const _SettingsDivider(),
+                        _SettingsRow(
+                          iconBox: const _IconBox(icon: Icons.language_rounded, color: Colors.cyanAccent),
+                          label: 'Language',
+                          trailing: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('English', style: TextStyle(color: PriVaultColors.textHint, fontSize: 14)),
+                              SizedBox(width: 8),
+                              Icon(Icons.chevron_right_rounded, color: PriVaultColors.textHint, size: 20),
+                            ],
+                          ),
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Group 3: Account
+                    profileAsync.maybeWhen(
+                      data: (profile) {
+                        if (profile == null) return const SizedBox.shrink();
+                        final accountType = profile['accountType'] as String? ?? profile['account_type'] as String? ?? 'personal';
+                        final plan = profile['plan'] as String? ?? 'free';
+                        final planLabel = plan == 'premium' ? 'Premium • 20GB'
+                            : plan == 'professional' ? 'Professional • Unlimited'
+                            : 'Free • 3GB';
+                        
+                        return Column(
+                          children: [
+                            _SettingsGroup(
+                              children: [
+                                _SettingsRow(
+                                  iconBox: const _IconBox(icon: Icons.workspace_premium_rounded, color: Colors.white, isGradient: true),
+                                  label: 'Upgrade Plan',
+                                  subtitle: planLabel,
+                                  onTap: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) => const PlanSelectionSheet(),
+                                    );
+                                  },
+                                ),
+                                if (accountType == 'personal' || accountType == 'regular') ...[
+                                  const _SettingsDivider(),
+                                  _SettingsRow(
+                                    iconBox: const _IconBox(icon: Icons.domain_rounded, color: Colors.purpleAccent),
+                                    label: 'Upgrade to Company Account',
+                                    onTap: () => context.push(AppRoutes.company),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+                        );
+                      },
+                      orElse: () => const SizedBox.shrink(),
+                    ),
+
+                    // Group 4: Support
+                    _SettingsGroup(
+                      children: [
+                        _SettingsRow(
+                          iconBox: const _IconBox(icon: Icons.help_outline_rounded, color: Colors.greenAccent),
+                          label: 'FAQ',
+                          onTap: () {},
+                        ),
+                        const _SettingsDivider(),
+                        _SettingsRow(
+                          iconBox: const _IconBox(icon: Icons.description_outlined, color: Colors.orangeAccent),
+                          label: 'Terms of service',
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 32),
                   ],
                 ),
-              );
-            },
-          ),
+              ),
+            ),
 
-          // Storage usage
-          storageAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (usage) {
-              final usedPct = double.tryParse(usage['used_percent']?.toString() ?? '0') ?? 0;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+            // Logout button fixed at bottom
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              child: GestureDetector(
+                onTap: () async {
+                  await ref.read(authStateProvider.notifier).signOut();
+                  if (context.mounted) context.go(AppRoutes.login);
+                },
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: PriVaultColors.surfaceLight,
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.redAccent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.2)),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Storage', style: TextStyle(fontWeight: FontWeight.w500)),
-                          Text('${usedPct.toStringAsFixed(1)}%', style: const TextStyle(color: PriVaultColors.textSecondary)),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: usedPct / 100,
-                          minHeight: 6,
-                          backgroundColor: PriVaultColors.divider,
-                          color: usedPct < 70 ? PriVaultColors.primary : usedPct < 90 ? Colors.amber : Colors.redAccent,
+                      Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Logout',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 16),
-          const Divider(indent: 16, endIndent: 16),
-
-          // Settings items
-          _SettingsTile(
-            icon: Icons.security_rounded,
-            title: 'Security & Privacy',
-            subtitle: '2FA, biometrics',
-            onTap: () {},
-          ),
-          _SettingsTile(
-            icon: Icons.notifications_rounded,
-            title: 'Notifications',
-            subtitle: 'Manage alerts',
-            onTap: () {},
-          ),
-          _SettingsTile(
-            icon: Icons.info_outline_rounded,
-            title: 'About PriVault',
-            subtitle: 'Version 1.0.0',
-            onTap: () {},
-          ),
-
-          const Divider(indent: 16, endIndent: 16),
-
-          // Sign out
-          ListTile(
-            leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            title: const Text('Sign Out', style: TextStyle(color: Colors.redAccent)),
-            onTap: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Sign Out'),
-                  content: const Text('Are you sure you want to sign out?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Sign Out', style: TextStyle(color: Colors.redAccent)),
-                    ),
-                  ],
-                ),
-              );
-              if (confirmed == true) {
-                await ref.read(authStateProvider.notifier).signOut();
-                if (context.mounted) context.go(AppRoutes.login);
-              }
-            },
-          ),
-        ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SettingsTile extends StatelessWidget {
+class _IconBox extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  const _SettingsTile({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  final Color color;
+  final bool isGradient;
+
+  const _IconBox({required this.icon, required this.color, this.isGradient = false});
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: PriVaultColors.primary),
-      title: Text(title),
-      subtitle: Text(subtitle, style: const TextStyle(color: PriVaultColors.textSecondary, fontSize: 12)),
-      trailing: const Icon(Icons.chevron_right, color: PriVaultColors.textSecondary),
-      onTap: onTap,
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: isGradient ? null : color.withValues(alpha: 0.1),
+        gradient: isGradient ? PriVaultColors.primaryGradient : null,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: isGradient ? Colors.white : color, size: 20),
     );
   }
 }
+
+class _SettingsGroup extends StatelessWidget {
+  final List<Widget> children;
+
+  const _SettingsGroup({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: PriVaultColors.surfaceLight,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: PriVaultColors.cardBorder),
+      ),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  final Widget iconBox;
+  final String label;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final String? subtitle;
+
+  const _SettingsRow({
+    required this.iconBox,
+    required this.label,
+    this.trailing,
+    this.onTap,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget content = Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          iconBox,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: const TextStyle(
+                      color: PriVaultColors.textHint,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) 
+            trailing! 
+          else 
+            const Icon(Icons.chevron_right_rounded, color: PriVaultColors.textHint, size: 20),
+        ],
+      ),
+    );
+
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: content,
+        ),
+      );
+    }
+
+    return content;
+  }
+}
+
+class _SettingsDivider extends StatelessWidget {
+  const _SettingsDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      color: Colors.white.withValues(alpha: 0.05),
+    );
+  }
+}
+

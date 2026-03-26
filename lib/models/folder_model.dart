@@ -25,14 +25,18 @@ class FolderModel {
 
   factory FolderModel.fromJson(Map<String, dynamic> json) {
     return FolderModel(
-      id: json['id'] as String,
-      userId: json['user_id'] as String,
+      id: (json['id'] as String?) ?? '',
+      userId: (json['user_id'] as String?) ?? '',
       parentId: json['parent_id'] as String?,
-      name: json['name'] as String,
+      name: (json['name'] as String?) ?? 'Unnamed',
       color: json['color'] as String?,
-      isShared: json['is_shared'] as bool? ?? false,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      isShared: (json['is_shared'] as bool?) ?? false,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : DateTime.now(),
     );
   }
 

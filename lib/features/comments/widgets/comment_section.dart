@@ -1,7 +1,9 @@
 // ============================================================
-// PriVault – File Comments Screen (BR-COM-01–03)
+// PriVault – File Comments Screen (BR-COM-01–03) – Firebase
 // ============================================================
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pri_vault/core/api/api_client.dart';
@@ -10,8 +12,26 @@ import 'package:pri_vault/core/theme/app_theme.dart';
 // --- Provider ---
 final fileCommentsProvider =
     FutureProvider.family<List<dynamic>, String>((ref, fileId) async {
-  final api = ref.read(apiClientProvider);
-  return await api.getList('/files/$fileId/comments');
+  final firestore = ref.read(firestoreProvider);
+  final snapshot = await firestore
+      .collection('comments')
+      .where('fileId', isEqualTo: fileId)
+      .get();
+  final docs = snapshot.docs.toList()
+    ..sort((a, b) {
+      final ta = a.data()['timestamp'] as Timestamp?;
+      final tb = b.data()['timestamp'] as Timestamp?;
+      return (ta?.millisecondsSinceEpoch ?? 0)
+          .compareTo(tb?.millisecondsSinceEpoch ?? 0);
+    });
+  return docs.map((doc) {
+    final data = doc.data();
+    data['id'] = doc.id;
+    if (data['timestamp'] is Timestamp) {
+      data['created_at'] = (data['timestamp'] as Timestamp).toDate().toIso8601String();
+    }
+    return data;
+  }).toList();
 });
 
 // --- Screen ---
@@ -39,10 +59,10 @@ class _FileCommentsSheetState extends ConsumerState<FileCommentsSheet> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
-    // BR-COM-03: Max 750 chars
-    if (text.length > 750) {
+    // BR-COM-03: Max 1000 chars
+    if (text.length > 1000) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Comment must be 750 characters or less')),
+        const SnackBar(content: Text('Comment must be 1000 characters or less')),
       );
       return;
     }
@@ -57,8 +77,18 @@ class _FileCommentsSheetState extends ConsumerState<FileCommentsSheet> {
 
     setState(() => _isSending = true);
     try {
-      final api = ref.read(apiClientProvider);
-      await api.post('/files/${widget.fileId}/comments', body: {'content': text});
+      final firestore = ref.read(firestoreProvider);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('You must be logged in');
+      await firestore
+          .collection('comments')
+          .add({
+        'userId': user.uid,
+        'fileId': widget.fileId,
+        'email': user.email ?? '',
+        'text': text,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
       _commentController.clear();
       ref.invalidate(fileCommentsProvider(widget.fileId));
     } catch (e) {
@@ -97,7 +127,7 @@ class _FileCommentsSheetState extends ConsumerState<FileCommentsSheet> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text('Comments: ${widget.fileName}',
-                  style: Theme.of(context).textTheme.titleMedium),
+                  style: Theme.of(context).textTheme.titleMedium,),
             ),
 
             // Comments list
@@ -135,7 +165,7 @@ class _FileCommentsSheetState extends ConsumerState<FileCommentsSheet> {
                   Expanded(
                     child: TextField(
                       controller: _commentController,
-                      maxLength: 750,
+                      maxLength: 1000,
                       decoration: InputDecoration(
                         hintText: 'Add a comment...',
                         counterText: '',

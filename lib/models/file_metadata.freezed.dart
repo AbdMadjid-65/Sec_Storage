@@ -28,9 +28,10 @@ mixin _$FileMetadata {
       throw _privateConstructorUsedError; // Original filename, encrypted
   String get mimeType => throw _privateConstructorUsedError;
   int get sizeBytes => throw _privateConstructorUsedError;
-  String get storagePath => throw _privateConstructorUsedError;
+  String get cloudinaryUrl => throw _privateConstructorUsedError;
   String? get thumbnailPath => throw _privateConstructorUsedError;
   bool get isFavorite => throw _privateConstructorUsedError;
+  bool get isVaultFile => throw _privateConstructorUsedError;
   bool get isDeleted => throw _privateConstructorUsedError;
   DateTime? get deletedAt => throw _privateConstructorUsedError;
   int get version => throw _privateConstructorUsedError;
@@ -60,9 +61,10 @@ abstract class $FileMetadataCopyWith<$Res> {
       String encryptedName,
       String mimeType,
       int sizeBytes,
-      String storagePath,
+      String cloudinaryUrl,
       String? thumbnailPath,
       bool isFavorite,
+      bool isVaultFile,
       bool isDeleted,
       DateTime? deletedAt,
       int version,
@@ -93,9 +95,10 @@ class _$FileMetadataCopyWithImpl<$Res, $Val extends FileMetadata>
     Object? encryptedName = null,
     Object? mimeType = null,
     Object? sizeBytes = null,
-    Object? storagePath = null,
+    Object? cloudinaryUrl = null,
     Object? thumbnailPath = freezed,
     Object? isFavorite = null,
+    Object? isVaultFile = null,
     Object? isDeleted = null,
     Object? deletedAt = freezed,
     Object? version = null,
@@ -134,9 +137,9 @@ class _$FileMetadataCopyWithImpl<$Res, $Val extends FileMetadata>
           ? _value.sizeBytes
           : sizeBytes // ignore: cast_nullable_to_non_nullable
               as int,
-      storagePath: null == storagePath
-          ? _value.storagePath
-          : storagePath // ignore: cast_nullable_to_non_nullable
+      cloudinaryUrl: null == cloudinaryUrl
+          ? _value.cloudinaryUrl
+          : cloudinaryUrl // ignore: cast_nullable_to_non_nullable
               as String,
       thumbnailPath: freezed == thumbnailPath
           ? _value.thumbnailPath
@@ -145,6 +148,10 @@ class _$FileMetadataCopyWithImpl<$Res, $Val extends FileMetadata>
       isFavorite: null == isFavorite
           ? _value.isFavorite
           : isFavorite // ignore: cast_nullable_to_non_nullable
+              as bool,
+      isVaultFile: null == isVaultFile
+          ? _value.isVaultFile
+          : isVaultFile // ignore: cast_nullable_to_non_nullable
               as bool,
       isDeleted: null == isDeleted
           ? _value.isDeleted
@@ -198,9 +205,10 @@ abstract class _$$FileMetadataImplCopyWith<$Res>
       String encryptedName,
       String mimeType,
       int sizeBytes,
-      String storagePath,
+      String cloudinaryUrl,
       String? thumbnailPath,
       bool isFavorite,
+      bool isVaultFile,
       bool isDeleted,
       DateTime? deletedAt,
       int version,
@@ -229,9 +237,10 @@ class __$$FileMetadataImplCopyWithImpl<$Res>
     Object? encryptedName = null,
     Object? mimeType = null,
     Object? sizeBytes = null,
-    Object? storagePath = null,
+    Object? cloudinaryUrl = null,
     Object? thumbnailPath = freezed,
     Object? isFavorite = null,
+    Object? isVaultFile = null,
     Object? isDeleted = null,
     Object? deletedAt = freezed,
     Object? version = null,
@@ -270,9 +279,9 @@ class __$$FileMetadataImplCopyWithImpl<$Res>
           ? _value.sizeBytes
           : sizeBytes // ignore: cast_nullable_to_non_nullable
               as int,
-      storagePath: null == storagePath
-          ? _value.storagePath
-          : storagePath // ignore: cast_nullable_to_non_nullable
+      cloudinaryUrl: null == cloudinaryUrl
+          ? _value.cloudinaryUrl
+          : cloudinaryUrl // ignore: cast_nullable_to_non_nullable
               as String,
       thumbnailPath: freezed == thumbnailPath
           ? _value.thumbnailPath
@@ -281,6 +290,10 @@ class __$$FileMetadataImplCopyWithImpl<$Res>
       isFavorite: null == isFavorite
           ? _value.isFavorite
           : isFavorite // ignore: cast_nullable_to_non_nullable
+              as bool,
+      isVaultFile: null == isVaultFile
+          ? _value.isVaultFile
+          : isVaultFile // ignore: cast_nullable_to_non_nullable
               as bool,
       isDeleted: null == isDeleted
           ? _value.isDeleted
@@ -329,9 +342,10 @@ class _$FileMetadataImpl implements _FileMetadata {
       required this.encryptedName,
       this.mimeType = 'application/octet-stream',
       this.sizeBytes = 0,
-      required this.storagePath,
+      required this.cloudinaryUrl,
       this.thumbnailPath,
       this.isFavorite = false,
+      this.isVaultFile = false,
       this.isDeleted = false,
       this.deletedAt,
       this.version = 1,
@@ -363,12 +377,15 @@ class _$FileMetadataImpl implements _FileMetadata {
   @JsonKey()
   final int sizeBytes;
   @override
-  final String storagePath;
+  final String cloudinaryUrl;
   @override
   final String? thumbnailPath;
   @override
   @JsonKey()
   final bool isFavorite;
+  @override
+  @JsonKey()
+  final bool isVaultFile;
   @override
   @JsonKey()
   final bool isDeleted;
@@ -390,7 +407,7 @@ class _$FileMetadataImpl implements _FileMetadata {
 
   @override
   String toString() {
-    return 'FileMetadata(id: $id, userId: $userId, folderId: $folderId, name: $name, encryptedName: $encryptedName, mimeType: $mimeType, sizeBytes: $sizeBytes, storagePath: $storagePath, thumbnailPath: $thumbnailPath, isFavorite: $isFavorite, isDeleted: $isDeleted, deletedAt: $deletedAt, version: $version, encryptionIv: $encryptionIv, fileKeyEncrypted: $fileKeyEncrypted, checksum: $checksum, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'FileMetadata(id: $id, userId: $userId, folderId: $folderId, name: $name, encryptedName: $encryptedName, mimeType: $mimeType, sizeBytes: $sizeBytes, cloudinaryUrl: $cloudinaryUrl, thumbnailPath: $thumbnailPath, isFavorite: $isFavorite, isVaultFile: $isVaultFile, isDeleted: $isDeleted, deletedAt: $deletedAt, version: $version, encryptionIv: $encryptionIv, fileKeyEncrypted: $fileKeyEncrypted, checksum: $checksum, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -409,12 +426,14 @@ class _$FileMetadataImpl implements _FileMetadata {
                 other.mimeType == mimeType) &&
             (identical(other.sizeBytes, sizeBytes) ||
                 other.sizeBytes == sizeBytes) &&
-            (identical(other.storagePath, storagePath) ||
-                other.storagePath == storagePath) &&
+            (identical(other.cloudinaryUrl, cloudinaryUrl) ||
+                other.cloudinaryUrl == cloudinaryUrl) &&
             (identical(other.thumbnailPath, thumbnailPath) ||
                 other.thumbnailPath == thumbnailPath) &&
             (identical(other.isFavorite, isFavorite) ||
                 other.isFavorite == isFavorite) &&
+            (identical(other.isVaultFile, isVaultFile) ||
+                other.isVaultFile == isVaultFile) &&
             (identical(other.isDeleted, isDeleted) ||
                 other.isDeleted == isDeleted) &&
             (identical(other.deletedAt, deletedAt) ||
@@ -434,26 +453,28 @@ class _$FileMetadataImpl implements _FileMetadata {
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      userId,
-      folderId,
-      name,
-      encryptedName,
-      mimeType,
-      sizeBytes,
-      storagePath,
-      thumbnailPath,
-      isFavorite,
-      isDeleted,
-      deletedAt,
-      version,
-      encryptionIv,
-      fileKeyEncrypted,
-      checksum,
-      createdAt,
-      updatedAt);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        userId,
+        folderId,
+        name,
+        encryptedName,
+        mimeType,
+        sizeBytes,
+        cloudinaryUrl,
+        thumbnailPath,
+        isFavorite,
+        isVaultFile,
+        isDeleted,
+        deletedAt,
+        version,
+        encryptionIv,
+        fileKeyEncrypted,
+        checksum,
+        createdAt,
+        updatedAt
+      ]);
 
   @JsonKey(ignore: true)
   @override
@@ -478,9 +499,10 @@ abstract class _FileMetadata implements FileMetadata {
       required final String encryptedName,
       final String mimeType,
       final int sizeBytes,
-      required final String storagePath,
+      required final String cloudinaryUrl,
       final String? thumbnailPath,
       final bool isFavorite,
+      final bool isVaultFile,
       final bool isDeleted,
       final DateTime? deletedAt,
       final int version,
@@ -508,11 +530,13 @@ abstract class _FileMetadata implements FileMetadata {
   @override
   int get sizeBytes;
   @override
-  String get storagePath;
+  String get cloudinaryUrl;
   @override
   String? get thumbnailPath;
   @override
   bool get isFavorite;
+  @override
+  bool get isVaultFile;
   @override
   bool get isDeleted;
   @override

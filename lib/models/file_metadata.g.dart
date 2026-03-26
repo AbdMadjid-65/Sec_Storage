@@ -15,9 +15,10 @@ _$FileMetadataImpl _$$FileMetadataImplFromJson(Map<String, dynamic> json) =>
       encryptedName: json['encryptedName'] as String,
       mimeType: json['mimeType'] as String? ?? 'application/octet-stream',
       sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
-      storagePath: json['storagePath'] as String,
+      cloudinaryUrl: json['cloudinaryUrl'] as String,
       thumbnailPath: json['thumbnailPath'] as String?,
       isFavorite: json['isFavorite'] as bool? ?? false,
+      isVaultFile: json['isVaultFile'] as bool? ?? false,
       isDeleted: json['isDeleted'] as bool? ?? false,
       deletedAt: json['deletedAt'] == null
           ? null
@@ -43,9 +44,10 @@ Map<String, dynamic> _$$FileMetadataImplToJson(_$FileMetadataImpl instance) =>
       'encryptedName': instance.encryptedName,
       'mimeType': instance.mimeType,
       'sizeBytes': instance.sizeBytes,
-      'storagePath': instance.storagePath,
+      'cloudinaryUrl': instance.cloudinaryUrl,
       'thumbnailPath': instance.thumbnailPath,
       'isFavorite': instance.isFavorite,
+      'isVaultFile': instance.isVaultFile,
       'isDeleted': instance.isDeleted,
       'deletedAt': instance.deletedAt?.toIso8601String(),
       'version': instance.version,

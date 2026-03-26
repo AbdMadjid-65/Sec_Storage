@@ -1,251 +1,909 @@
 // ============================================================
-// PriVault – Dashboard Screen (BR-25)
+// PriVault – Dashboard Screen (BR-25) – Firebase
 // ============================================================
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pri_vault/core/api/api_client.dart';
 import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/core/router/app_router.dart';
-import 'package:pri_vault/features/auth/providers/auth_provider.dart';
+import 'package:pri_vault/core/encryption/crypto_utils.dart';
+import 'package:pri_vault/features/auth/providers/profile_provider.dart';
+import 'package:pri_vault/features/files/providers/files_provider.dart';
+import 'package:pri_vault/features/files/screens/files_screen.dart';
+import 'package:pri_vault/features/files/screens/file_detail_screen.dart';
+import 'package:pri_vault/features/setup/widgets/plan_selection_sheet.dart';
+import 'package:pri_vault/features/sharing/providers/sharing_provider.dart';
+import 'package:pri_vault/models/file_metadata.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math' as math;
+
+// --- Helpers ---
+
+/// Classify a MIME type into one of four categories.
+String _classifyMime(String mime) {
+  final m = mime.toLowerCase();
+  if (m.startsWith('image/')) return 'pictures';
+  if (m.startsWith('video/')) return 'videos';
+  if (m.startsWith('audio/')) return 'music';
+  // PDFs, docs, spreadsheets, text, etc.
+  if (m.startsWith('application/pdf') ||
+      m.startsWith('application/msword') ||
+      m.startsWith('application/vnd.') ||
+      m.startsWith('text/')) {
+    return 'documents';
+  }
+  return 'documents'; // default bucket
+}
+
+String _formatSize(int bytes) {
+  if (bytes <= 0) return '0 B';
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  if (bytes < 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+}
 
 // --- Providers ---
 
 final dashboardStatsProvider =
     FutureProvider<Map<String, dynamic>>((ref) async {
-  final api = ref.read(apiClientProvider);
-  return await api.get('/dashboard/stats');
+  final firestore = ref.read(firestoreProvider);
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return {};
+
+  final userDoc = await firestore.collection('users').doc(uid).get();
+  final userData = userDoc.data() ?? {};
+
+  // Fetch ALL non-deleted files
+  final filesSnap = await firestore
+      .collection('users')
+      .doc(uid)
+      .collection('files')
+      .where('isDeleted', isEqualTo: false)
+      .get();
+
+  // Build per-category stats
+  final cats = <String, Map<String, int>>{
+    'pictures': {'count': 0, 'bytes': 0},
+    'documents': {'count': 0, 'bytes': 0},
+    'videos': {'count': 0, 'bytes': 0},
+    'music': {'count': 0, 'bytes': 0},
+  };
+
+  int totalUsedBytes = 0;
+
+  // Collect recent files (raw docs sorted by updatedAt)
+  final allDocs = filesSnap.docs.toList();
+
+  for (final doc in allDocs) {
+    final data = doc.data();
+    final mime = (data['mimeType'] ?? data['mime_type'] ?? 'application/octet-stream') as String;
+    final size = (data['sizeBytes'] ?? data['size_bytes'] ?? 0) as int;
+    final cat = _classifyMime(mime);
+
+    cats[cat]!['count'] = cats[cat]!['count']! + 1;
+    cats[cat]!['bytes'] = cats[cat]!['bytes']! + size;
+    totalUsedBytes += size;
+  }
+
+  // Sort by updatedAt descending for recent files
+  allDocs.sort((a, b) {
+    final aTime = a.data()['updatedAt'] ?? a.data()['updated_at'];
+    final bTime = b.data()['updatedAt'] ?? b.data()['updated_at'];
+    if (aTime == null && bTime == null) return 0;
+    if (aTime == null) return 1;
+    if (bTime == null) return -1;
+    if (aTime is Timestamp && bTime is Timestamp) {
+      return bTime.compareTo(aTime);
+    }
+    return 0;
+  });
+
+  final recentDocs = allDocs.take(10).map((doc) {
+    final data = Map<String, dynamic>.from(doc.data());
+    data['id'] = doc.id;
+    data['user_id'] = uid;
+    return data;
+  }).toList();
+
+  final storageMaxBytes = userData['storageMaxBytes'] ?? userData['storage_max_bytes'] ?? 3221225472;
+
+  return {
+    'storage': {
+      'storage_used_bytes': totalUsedBytes,
+      'storage_max_bytes': storageMaxBytes,
+    },
+    'categories': cats,
+    'total_files': allDocs.length,
+    'recent_files': recentDocs,
+  };
 });
 
 final dashboardActivityProvider =
     FutureProvider<List<dynamic>>((ref) async {
-  final api = ref.read(apiClientProvider);
-  return await api.getList('/dashboard/activity');
+  final firestore = ref.read(firestoreProvider);
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return [];
+
+  final snapshot = await firestore
+      .collection('auditLogs')
+      .where('userId', isEqualTo: uid)
+      .orderBy('timestamp', descending: true)
+      .limit(20)
+      .get();
+  return snapshot.docs.map((doc) => doc.data()).toList();
 });
 
 // --- Screen ---
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkPlanSelection();
+  }
+
+  Future<void> _checkPlanSelection() async {
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final plan = userDoc.data()?['plan'];
+
+      if (plan == null && mounted) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          isDismissible: false,
+          enableDrag: false,
+          backgroundColor: Colors.transparent,
+          builder: (_) => const PlanSelectionSheet(isDismissible: false),
+        );
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final statsAsync = ref.watch(dashboardStatsProvider);
+    final profileAsync = ref.watch(userProfileProvider);
+    final userProfile = profileAsync.valueOrNull;
+
+    // Extract profile info for the header
+    final photoUrl = userProfile?['photoUrl'] as String?;
+    final displayName = userProfile?['display_name'] as String? ??
+        FirebaseAuth.instance.currentUser?.displayName ??
+        'User';
 
     return Scaffold(
+      backgroundColor: PriVaultColors.background,
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Row(
+          children: [
+            // (#7) Profile avatar
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: PriVaultColors.surfaceLight,
+              backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
+                  ? NetworkImage(photoUrl)
+                  : null,
+              child: (photoUrl == null || photoUrl.isEmpty)
+                  ? const Icon(Icons.person_rounded,
+                      color: PriVaultColors.textHint, size: 22,)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            // (#7) Welcome message
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome back, $displayName 👋',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
+          // (#5) Notification bell — no badge since there's no real notification system yet
           IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Sign Out',
-            onPressed: () async {
-              await ref.read(authStateProvider.notifier).signOut();
-              if (context.mounted) context.go(AppRoutes.login);
-            },
+            onPressed: () => context.push(AppRoutes.notifications),
+            icon: const Icon(
+                Icons.notifications_none_rounded, color: Colors.white,),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(dashboardStatsProvider);
-          ref.invalidate(dashboardActivityProvider);
-        },
-        child: statsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => _ErrorView(error: e.toString(), onRetry: () => ref.invalidate(dashboardStatsProvider)),
-          data: (stats) => _DashboardContent(stats: stats),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(dashboardStatsProvider);
+            ref.invalidate(dashboardActivityProvider);
+          },
+          child: statsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => _ErrorView(
+              error: e.toString(),
+              onRetry: () => ref.invalidate(dashboardStatsProvider),
+            ),
+            data: (stats) => CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.all(24.0),
+                  sliver: SliverToBoxAdapter(
+                    child: _DashboardContent(stats: stats),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _DashboardContent extends StatelessWidget {
+class _DashboardContent extends ConsumerWidget {
   final Map<String, dynamic> stats;
+
   const _DashboardContent({required this.stats});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // (#2) Real storage data
     final storage = stats['storage'] as Map<String, dynamic>? ?? {};
-    final usedBytes = (storage['storage_used_bytes'] ?? 0) as num;
-    final maxBytes = (storage['storage_max_bytes'] ?? 3221225472) as num;
-    final usedPercent = maxBytes > 0 ? (usedBytes / maxBytes) : 0.0;
-    final totalFiles = stats['total_files'] ?? 0;
-    final sharedFiles = stats['shared_files'] ?? 0;
-    final trashFiles = stats['trash_files'] ?? 0;
+    final storageUsedBytes = storage['storage_used_bytes'] as int? ?? 0;
+    final storageMaxBytes =
+        storage['storage_max_bytes'] as int? ?? 3221225472;
+    final usedPercentage =
+        storageMaxBytes > 0
+            ? ((storageUsedBytes / storageMaxBytes) * 100).clamp(0.0, 100.0)
+            : 0.0;
+    final usedDisplay = _formatSize(storageUsedBytes);
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    // (#3) Real category data
+    final categories =
+        stats['categories'] as Map<String, Map<String, int>>? ?? {};
+    final picturesCat = categories['pictures'] ?? {'count': 0, 'bytes': 0};
+    final documentsCat = categories['documents'] ?? {'count': 0, 'bytes': 0};
+    final videosCat = categories['videos'] ?? {'count': 0, 'bytes': 0};
+    final musicCat = categories['music'] ?? {'count': 0, 'bytes': 0};
+
+    // (#6) Recent files
+    final recentFiles =
+        stats['recent_files'] as List<Map<String, dynamic>>? ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // --- Storage Card ---
-        _GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        // (#1) Banner REMOVED — nothing here
+
+        // (#2) Statistics Section
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Statistics',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  '${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year.toString().substring(2)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: PriVaultColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${usedPercentage.toStringAsFixed(1)}%',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const Text(
+                  'Used',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: PriVaultColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // (#2) Donut Chart — real proportions
+        SizedBox(
+          height: 256,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.cloud_rounded, color: PriVaultColors.primary),
-                  const SizedBox(width: 8),
-                  Text('Storage', style: Theme.of(context).textTheme.titleMedium),
-                ],
-              ),
-              const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: usedPercent.toDouble(),
-                  minHeight: 10,
-                  backgroundColor: PriVaultColors.divider,
-                  color: usedPercent < 0.7
-                      ? PriVaultColors.primary
-                      : usedPercent < 0.9
-                          ? Colors.amber
-                          : Colors.redAccent,
+              CustomPaint(
+                size: const Size(256, 256),
+                painter: _StoragePieChartPainter(
+                  picturesBytes: picturesCat['bytes']!,
+                  documentsBytes: documentsCat['bytes']!,
+                  videosBytes: videosCat['bytes']!,
+                  musicBytes: musicCat['bytes']!,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                '${_formatBytes(usedBytes.toInt())} of ${_formatBytes(maxBytes.toInt())} used',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: PriVaultColors.textSecondary),
+              // Center text shows real used storage
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    usedDisplay,
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Text(
+                    'Used',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: PriVaultColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              Positioned(
+                top: 0,
+                right: 32,
+                child: _buildFloatingIcon(
+                    Icons.image, [Colors.pink, Colors.pinkAccent],),
+              ),
+              Positioned(
+                top: 100,
+                right: 0,
+                child: _buildFloatingIcon(
+                    Icons.description, [Colors.amber, Colors.orangeAccent],),
+              ),
+              Positioned(
+                bottom: 100,
+                right: 8,
+                child: _buildFloatingIcon(
+                    Icons.videocam, [Colors.lightGreen, Colors.greenAccent],),
+              ),
+              Positioned(
+                bottom: 16,
+                left: 104,
+                child: _buildFloatingIcon(
+                    Icons.music_note, [Colors.cyan, Colors.lightBlueAccent],),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 24),
 
-        const SizedBox(height: 16),
-
-        // --- Quick Stats ---
-        Row(
+        // (#3 & #4) Category Cards Grid — real data + navigation
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.85,
           children: [
-            Expanded(child: _StatTile(icon: Icons.folder_rounded, label: 'Files', value: '$totalFiles', color: PriVaultColors.primary)),
-            const SizedBox(width: 12),
-            Expanded(child: _StatTile(icon: Icons.share_rounded, label: 'Shared', value: '$sharedFiles', color: Colors.teal)),
-            const SizedBox(width: 12),
-            Expanded(child: _StatTile(icon: Icons.delete_outline_rounded, label: 'Trash', value: '$trashFiles', color: Colors.orange)),
+            _buildCategoryCard(
+              context,
+              name: 'Pictures',
+              count: picturesCat['count']!,
+              bytes: picturesCat['bytes']!,
+              icon: Icons.image,
+              gradient: [Colors.pink, Colors.pinkAccent],
+              tabName: 'Images',
+            ),
+            _buildCategoryCard(
+              context,
+              name: 'Documents',
+              count: documentsCat['count']!,
+              bytes: documentsCat['bytes']!,
+              icon: Icons.description,
+              gradient: [Colors.amber, Colors.orange],
+              tabName: 'Documents',
+            ),
+            _buildCategoryCard(
+              context,
+              name: 'Videos',
+              count: videosCat['count']!,
+              bytes: videosCat['bytes']!,
+              icon: Icons.videocam,
+              gradient: [Colors.lightGreen, Colors.green],
+              tabName: 'Videos',
+            ),
+            _buildCategoryCard(
+              context,
+              name: 'Music',
+              count: musicCat['count']!,
+              bytes: musicCat['bytes']!,
+              icon: Icons.music_note,
+              gradient: [Colors.cyan, Colors.lightBlue],
+              tabName: 'Other',
+            ),
           ],
         ),
+        const SizedBox(height: 32),
 
-        const SizedBox(height: 20),
-
-        // --- Quick Actions ---
-        Text('Quick Actions', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _QuickAction(icon: Icons.upload_file_rounded, label: 'Upload', onTap: () => context.go(AppRoutes.files)),
-            _QuickAction(icon: Icons.document_scanner_rounded, label: 'Scan', onTap: () => context.push(AppRoutes.camscanner)),
-            _QuickAction(icon: Icons.security_rounded, label: 'Vault', onTap: () => context.push(AppRoutes.secureVault)),
-            _QuickAction(icon: Icons.credit_card_rounded, label: 'Wallet', onTap: () => context.push(AppRoutes.papersWallet)),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        // --- Top Files ---
-        if ((stats['top_files'] as List?)?.isNotEmpty == true) ...[
-          Text('Most Accessed', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          ...(stats['top_files'] as List).take(5).map((f) {
-            final fMap = f as Map<String, dynamic>;
-            return ListTile(
-              dense: true,
-              leading: const Icon(Icons.insert_drive_file_rounded, size: 20),
-              title: Text(fMap['encrypted_name'] ?? 'Encrypted file', maxLines: 1, overflow: TextOverflow.ellipsis),
-              trailing: Text('${fMap['access_count']}×', style: const TextStyle(color: PriVaultColors.textSecondary)),
-            );
-          }),
+        // (#6) Recently Used Files Section
+        if (recentFiles.isNotEmpty) ...[
+          const Text(
+            'Recently Used',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 120,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: recentFiles.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final fileData = recentFiles[index];
+                return _RecentFileCard(fileData: fileData);
+              },
+            ),
+          ),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: PriVaultColors.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: PriVaultColors.cardBorder),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.history_rounded,
+                    size: 40, color: PriVaultColors.textHint,),
+                SizedBox(height: 12),
+                Text(
+                  'No recently used files yet',
+                  style: TextStyle(
+                    color: PriVaultColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
+
+        const SizedBox(height: 100), // Bottom nav padding
       ],
     );
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1048576) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1073741824) return '${(bytes / 1048576).toStringAsFixed(1)} MB';
-    return '${(bytes / 1073741824).toStringAsFixed(2)} GB';
-  }
-}
-
-class _GlassCard extends StatelessWidget {
-  final Widget child;
-  const _GlassCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildFloatingIcon(IconData icon, List<Color> colors) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: 32,
+      height: 32,
       decoration: BoxDecoration(
-        color: PriVaultColors.surfaceLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: PriVaultColors.divider),
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: child,
+      child: Center(child: Icon(icon, color: Colors.white, size: 16)),
     );
   }
-}
 
-class _StatTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  const _StatTile({required this.icon, required this.label, required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 6),
-          Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color, fontWeight: FontWeight.bold)),
-          Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: PriVaultColors.textSecondary)),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _QuickAction({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+  // (#3 & #4) Category card with real data and navigation
+  Widget _buildCategoryCard(
+    BuildContext context, {
+    required String name,
+    required int count,
+    required int bytes,
+    required IconData icon,
+    required List<Color> gradient,
+    required String tabName,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => FilesScreen(initialTab: tabName),
+          ),
+        );
+      },
       child: Container(
-        width: 80,
-        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: PriVaultColors.surfaceLight,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: PriVaultColors.divider),
+          color: PriVaultColors.surface,
+          borderRadius: BorderRadius.circular(24),
         ),
-        child: Column(
+        child: Stack(
           children: [
-            Icon(icon, color: PriVaultColors.primary),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.topRight,
+                    radius: 1.0,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.05),
+                      Colors.transparent,
+                    ],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(80),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: gradient),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child:
+                            Center(child: Icon(icon, color: Colors.white)),
+                      ),
+                      const Icon(Icons.chevron_right_rounded,
+                          color: PriVaultColors.textHint,),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$count Files',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: PriVaultColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        _formatSize(bytes),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+// (#6) Recent file card widget
+class _RecentFileCard extends ConsumerWidget {
+  final Map<String, dynamic> fileData;
+  const _RecentFileCard({required this.fileData});
+
+  IconData _getFileIcon(String mime) {
+    final m = mime.toLowerCase();
+    if (m.startsWith('image/')) return Icons.image_rounded;
+    if (m.startsWith('video/')) return Icons.videocam_rounded;
+    if (m.startsWith('audio/')) return Icons.music_note_rounded;
+    if (m.contains('pdf')) return Icons.picture_as_pdf_rounded;
+    return Icons.insert_drive_file_rounded;
+  }
+
+  Color _getFileColor(String mime) {
+    final m = mime.toLowerCase();
+    if (m.startsWith('image/')) return Colors.pinkAccent;
+    if (m.startsWith('video/')) return Colors.greenAccent;
+    if (m.startsWith('audio/')) return Colors.cyanAccent;
+    if (m.contains('pdf')) return Colors.redAccent;
+    return Colors.indigoAccent;
+  }
+
+  Future<String> _getDisplayName(WidgetRef ref) async {
+    final encName = (fileData['encryptedName'] ??
+        fileData['encrypted_name'] ??
+        '') as String;
+    if (encName.isEmpty) return 'Untitled';
+
+    try {
+      final vault = ref.read(vaultServiceProvider);
+      final encryption = ref.read(encryptionServiceProvider);
+      final seedBase64 = await vault.getMasterKeySeed();
+      if (seedBase64 == null) return 'Encrypted File';
+      final masterKey = CryptoUtils.fromBase64(seedBase64);
+      final decryptedBytes = await encryption.decrypt(
+        ciphertext: CryptoUtils.fromBase64(encName),
+        key: masterKey,
+      );
+      return String.fromCharCodes(decryptedBytes);
+    } catch (_) {
+      return 'Encrypted File';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mime = (fileData['mimeType'] ??
+        fileData['mime_type'] ??
+        'application/octet-stream') as String;
+    final size = (fileData['sizeBytes'] ?? fileData['size_bytes'] ?? 0) as int;
+
+    return FutureBuilder<String>(
+      future: _getDisplayName(ref),
+      builder: (context, snapshot) {
+        final name = snapshot.data ?? 'Decrypting...';
+
+        return GestureDetector(
+          onTap: () {
+            if (!snapshot.hasData) return;
+            // Build FileMetadata from raw data to navigate
+            try {
+              final normalized = _normalizeForModel(fileData);
+              final fileMeta = FileMetadata.fromJson(normalized);
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FileViewerScreen(
+                    file: fileMeta,
+                    displayName: name,
+                  ),
+                ),
+              );
+            } catch (e) {
+              debugPrint('RecentFileCard nav error: $e');
+            }
+          },
+          child: Container(
+            width: 100,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: PriVaultColors.surfaceLight,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: PriVaultColors.cardBorder),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _getFileColor(mime).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    _getFileIcon(mime),
+                    color: _getFileColor(mime),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _formatSize(size),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: PriVaultColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Map<String, dynamic> _normalizeForModel(Map<String, dynamic> data) {
+    // Ensure all keys the FileMetadata model expects are present
+    final result = Map<String, dynamic>.from(data);
+    result['id'] ??= '';
+    result['userId'] ??= result['user_id'] ?? '';
+    result['name'] ??= result['encryptedName'] ?? result['encrypted_name'] ?? '';
+    result['encryptedName'] ??= result['encrypted_name'] ?? '';
+    result['cloudinaryUrl'] ??= result['cloudinary_url'] ?? '';
+    result['mimeType'] ??= result['mime_type'] ?? 'application/octet-stream';
+    result['sizeBytes'] ??= result['size_bytes'] ?? 0;
+    result['isFavorite'] ??= result['is_favorite'] ?? false;
+    result['isDeleted'] ??= result['is_deleted'] ?? false;
+    // Convert Firestore Timestamp fields to ISO strings for Freezed JSON parser
+    if (result['createdAt'] is Timestamp) {
+      result['createdAt'] = (result['createdAt'] as Timestamp).toDate().toIso8601String();
+    }
+    if (result['updatedAt'] is Timestamp) {
+      result['updatedAt'] = (result['updatedAt'] as Timestamp).toDate().toIso8601String();
+    }
+    if (result['deletedAt'] is Timestamp) {
+      result['deletedAt'] = (result['deletedAt'] as Timestamp).toDate().toIso8601String();
+    }
+    return result;
+  }
+}
+
+// (#2) Donut chart painter — single ring with proportional colored arcs
+class _StoragePieChartPainter extends CustomPainter {
+  final int picturesBytes;
+  final int documentsBytes;
+  final int videosBytes;
+  final int musicBytes;
+
+  _StoragePieChartPainter({
+    required this.picturesBytes,
+    required this.documentsBytes,
+    required this.videosBytes,
+    required this.musicBytes,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const radius = 90.0;
+    const strokeWidth = 24.0;
+    const gapDeg = 4.0; // gap between arcs in degrees
+
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Background ring (always visible)
+    final bgPaint = Paint()
+      ..color = PriVaultColors.surface
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    final total = picturesBytes + documentsBytes + videosBytes + musicBytes;
+
+    // Arc colors for each category
+    final arcDefs = <_ArcDef>[
+      _ArcDef(picturesBytes, [Colors.pink, Colors.pinkAccent]),
+      _ArcDef(documentsBytes, [Colors.amber, Colors.orangeAccent]),
+      _ArcDef(videosBytes, [Colors.lightGreen, Colors.greenAccent]),
+      _ArcDef(musicBytes, [Colors.cyan, Colors.lightBlueAccent]),
+    ];
+
+    const rad = math.pi / 180;
+
+    if (total == 0) {
+      // Empty state: draw four equally-spaced subtle arcs
+      final emptyPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
+      for (var i = 0; i < arcDefs.length; i++) {
+        final startAngle = (-90 + i * 90 + gapDeg / 2) * rad;
+        const sweepAngle = (90 - gapDeg) * rad;
+        final gradient = SweepGradient(
+          startAngle: startAngle,
+          endAngle: startAngle + sweepAngle,
+          colors: arcDefs[i].colors.map((c) => c.withValues(alpha: 0.15)).toList(),
+        ).createShader(rect);
+        emptyPaint.shader = gradient;
+        canvas.drawArc(rect, startAngle, sweepAngle, false, emptyPaint);
+      }
+      return;
+    }
+
+    // Count how many categories have data — needed for gap calculation
+    final activeCount = arcDefs.where((a) => a.bytes > 0).length;
+    final totalGapDeg = activeCount > 1 ? gapDeg * activeCount : 0.0;
+    final availableDeg = 360.0 - totalGapDeg;
+
+    double currentAngle = -90.0; // start from 12 o'clock
+
+    for (final arc in arcDefs) {
+      if (arc.bytes <= 0) continue;
+
+      final sweepDeg = math.max((arc.bytes / total) * availableDeg, 8.0);
+      final startRad = currentAngle * rad;
+      final sweepRad = sweepDeg * rad;
+
+      final gradient = SweepGradient(
+        startAngle: startRad,
+        endAngle: startRad + sweepRad,
+        colors: arc.colors,
+      ).createShader(rect);
+
+      final arcPaint = Paint()
+        ..shader = gradient
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawArc(rect, startRad, sweepRad, false, arcPaint);
+
+      currentAngle += sweepDeg + (activeCount > 1 ? gapDeg : 0);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StoragePieChartPainter oldDelegate) =>
+      oldDelegate.picturesBytes != picturesBytes ||
+      oldDelegate.documentsBytes != documentsBytes ||
+      oldDelegate.videosBytes != videosBytes ||
+      oldDelegate.musicBytes != musicBytes;
+}
+
+class _ArcDef {
+  final int bytes;
+  final List<Color> colors;
+  const _ArcDef(this.bytes, this.colors);
 }
 
 class _ErrorView extends StatelessWidget {
@@ -261,7 +919,11 @@ class _ErrorView extends StatelessWidget {
         children: [
           const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
           const SizedBox(height: 12),
-          Text(error, textAlign: TextAlign.center, style: const TextStyle(color: PriVaultColors.textSecondary)),
+          Text(
+            error,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: PriVaultColors.textSecondary),
+          ),
           const SizedBox(height: 16),
           ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
         ],
