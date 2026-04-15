@@ -1,5 +1,5 @@
 // ============================================================
-// PriVault – Custom Animated Bottom Navigation Shell
+// PriVault – Floating pill bottom navigation (slim)
 // ============================================================
 
 import 'dart:ui' as ui;
@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:pri_vault/core/router/app_router.dart';
 import 'package:pri_vault/core/theme/app_theme.dart';
-import 'package:pri_vault/features/auth/providers/profile_provider.dart';
 
 class PriVaultShell extends ConsumerWidget {
   final Widget child;
@@ -20,7 +19,7 @@ class PriVaultShell extends ConsumerWidget {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith(AppRoutes.home)) return 0;
     if (location.startsWith(AppRoutes.files)) return 1;
-    if (location.startsWith(AppRoutes.sharing)) return 2;
+    if (location.startsWith(AppRoutes.chat)) return 2;
     if (location.startsWith(AppRoutes.secureVault)) return 3;
     if (location.startsWith(AppRoutes.settings)) return 4;
     return 0;
@@ -35,7 +34,7 @@ class PriVaultShell extends ConsumerWidget {
         context.go(AppRoutes.files);
         break;
       case 2:
-        context.go(AppRoutes.sharing);
+        context.go(AppRoutes.chat);
         break;
       case 3:
         context.go(AppRoutes.secureVault);
@@ -51,9 +50,8 @@ class PriVaultShell extends ConsumerWidget {
     final currentIndex = _currentIndex(context);
     final location = GoRouterState.of(context).matchedLocation;
 
-    // Watch Firestore profile stream for the profile photo.
-    final profileAsync = ref.watch(userProfileProvider);
-    final photoUrl = profileAsync.valueOrNull?['photoUrl'] as String?;
+    const barHeight = 56.0;
+    const iconSize = 22.0;
 
     return Scaffold(
       extendBody: true,
@@ -67,64 +65,64 @@ class PriVaultShell extends ConsumerWidget {
           child: child,
         ),
       ),
-      // Floating Bottom Nav with animated items
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(left: 24, right: 24, bottom: 14),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(30),
             child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                height: barHeight,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A24).withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  color: const Color(0xFF1C1C2E).withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
+                      color: Colors.black.withValues(alpha: 0.35),
                       blurRadius: 24,
-                      offset: const Offset(0, 8),
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _NavItem(
-                      icon: Icons.dashboard_outlined,
-                      activeIcon: Icons.dashboard_rounded,
+                    _NavPillItem(
+                      icon: Icons.dashboard_rounded,
                       label: 'Dashboard',
                       isSelected: currentIndex == 0,
+                      iconSize: iconSize,
                       onTap: () => _onTap(context, 0),
                     ),
-                    _NavItem(
-                      icon: Icons.folder_outlined,
-                      activeIcon: Icons.folder_rounded,
-                      label: 'Files',
+                    _NavPillItem(
+                      icon: Icons.folder_rounded,
+                      label: 'My Files',
                       isSelected: currentIndex == 1,
+                      iconSize: iconSize,
                       onTap: () => _onTap(context, 1),
                     ),
-                    _NavItem(
-                      icon: Icons.share_outlined,
-                      activeIcon: Icons.share_rounded,
-                      label: 'Shared',
+                    _NavPillItem(
+                      icon: Icons.chat_bubble_rounded,
+                      label: 'Chat',
                       isSelected: currentIndex == 2,
+                      iconSize: iconSize,
                       onTap: () => _onTap(context, 2),
                     ),
-                    _NavItem(
-                      icon: Icons.shield_outlined,
-                      activeIcon: Icons.shield_rounded,
+                    _NavPillItem(
+                      icon: Icons.shield_rounded,
                       label: 'Vault',
                       isSelected: currentIndex == 3,
+                      iconSize: iconSize,
                       onTap: () => _onTap(context, 3),
                     ),
-                    // Profile tab — shows CircleAvatar with photo from Firestore stream.
-                    _ProfileNavItem(
-                      photoUrl: photoUrl,
+                    _NavPillItem(
+                      icon: Icons.person_rounded,
                       label: 'Profile',
                       isSelected: currentIndex == 4,
+                      iconSize: iconSize,
                       onTap: () => _onTap(context, 4),
                     ),
                   ],
@@ -138,142 +136,76 @@ class PriVaultShell extends ConsumerWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _NavPillItem extends StatelessWidget {
   final IconData icon;
-  final IconData activeIcon;
   final String label;
   final bool isSelected;
+  final double iconSize;
   final VoidCallback onTap;
 
-  const _NavItem({
+  const _NavPillItem({
     required this.icon,
-    required this.activeIcon,
     required this.label,
     required this.isSelected,
+    required this.iconSize,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 60),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.center,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 280),
               curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.symmetric(
+                horizontal: isSelected ? 12 : 8,
+                vertical: 8,
+              ),
               decoration: BoxDecoration(
-                gradient: isSelected ? PriVaultColors.primaryGradient : null,
-                color: isSelected ? null : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: PriVaultColors.primary.withValues(alpha: 0.5),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: iconSize,
+                    color: isSelected
+                        ? Colors.white
+                        : PriVaultColors.textSecondary.withValues(alpha: 0.85),
+                  ),
+                  if (isSelected) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
-                isSelected ? activeIcon : icon,
-                color: isSelected ? Colors.white : PriVaultColors.textSecondary,
-                size: 20,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : PriVaultColors.textHint,
-                fontWeight: FontWeight.w500,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Profile tab nav item that shows the user's photo from Firestore stream.
-/// Uses [ValueKey] to force a rebuild whenever the photo URL changes.
-class _ProfileNavItem extends StatelessWidget {
-  final String? photoUrl;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ProfileNavItem({
-    required this.photoUrl,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 60),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                gradient: isSelected ? PriVaultColors.primaryGradient : null,
-                color: isSelected ? null : Colors.transparent,
-                shape: BoxShape.circle,
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: PriVaultColors.primary.withValues(alpha: 0.5),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: CircleAvatar(
-                key: ValueKey(photoUrl), // Forces rebuild when URL changes
-                radius: 14,
-                backgroundColor: const Color(0xFF1A1A24),
-                backgroundImage: (photoUrl != null && photoUrl!.isNotEmpty)
-                    ? NetworkImage(photoUrl!)
-                    : null,
-                child: (photoUrl == null || photoUrl!.isEmpty)
-                    ? Icon(
-                        isSelected ? Icons.person_rounded : Icons.person_outline_rounded,
-                        color: isSelected ? Colors.white : PriVaultColors.textSecondary,
-                        size: 16,
-                      )
-                    : null,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : PriVaultColors.textHint,
-                fontWeight: FontWeight.w500,
-                fontSize: 10,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

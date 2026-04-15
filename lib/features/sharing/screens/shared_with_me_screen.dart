@@ -40,19 +40,19 @@ class SharedWithMeScreen extends ConsumerWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.people_alt_rounded,
-                        size: 32, color: PriVaultColors.primary),
+                        size: 32, color: PriVaultColors.primary,),
                   ),
                   const SizedBox(height: 16),
                   const Text('No files shared with you',
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
-                          fontSize: 15)),
+                          fontSize: 15,),),
                   const SizedBox(height: 8),
                   const Text(
                     'Files others share with you will appear here.',
                     style: TextStyle(
-                        color: PriVaultColors.textHint, fontSize: 12),
+                        color: PriVaultColors.textHint, fontSize: 12,),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -74,7 +74,7 @@ class SharedWithMeScreen extends ConsumerWidget {
           const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
           child: Text('Error: $e',
-              style: const TextStyle(color: Colors.white))),
+              style: const TextStyle(color: Colors.white),),),
     );
   }
 }
@@ -126,14 +126,14 @@ class _SharedFileCard extends StatelessWidget {
                       style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
-                          fontSize: 14),
+                          fontSize: 14,),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       _formatSize(file.sizeBytes),
                       style: const TextStyle(
                           color: PriVaultColors.textHint,
-                          fontSize: 11),
+                          fontSize: 11,),
                     ),
                   ],
                 ),
@@ -141,7 +141,7 @@ class _SharedFileCard extends StatelessWidget {
               // Permission badge
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
+                    horizontal: 8, vertical: 4,),
                 decoration: BoxDecoration(
                   color: canDownload
                       ? Colors.blueAccent.withValues(alpha: 0.12)
@@ -169,7 +169,7 @@ class _SharedFileCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: canDownload
                               ? Colors.blueAccent
-                              : PriVaultColors.primary),
+                              : PriVaultColors.primary,),
                     ),
                   ],
                 ),
@@ -182,7 +182,7 @@ class _SharedFileCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.person_outline_rounded,
-                  size: 13, color: PriVaultColors.textHint),
+                  size: 13, color: PriVaultColors.textHint,),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -191,19 +191,19 @@ class _SharedFileCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       color: PriVaultColors.textSecondary,
-                      fontSize: 12),
+                      fontSize: 12,),
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.schedule_rounded,
-                  size: 13, color: PriVaultColors.textHint),
+              const Icon(Icons.schedule_rounded,
+                  size: 13, color: PriVaultColors.textHint,),
               const SizedBox(width: 4),
               Text(
                 share.expiresAt == null
                     ? 'No expiry'
                     : 'Expires ${_fmt(share.expiresAt)}',
                 style: const TextStyle(
-                    color: PriVaultColors.textHint, fontSize: 12),
+                    color: PriVaultColors.textHint, fontSize: 12,),
               ),
             ],
           ),
@@ -215,7 +215,7 @@ class _SharedFileCard extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                   top: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.06))),
+                      color: Colors.white.withValues(alpha: 0.06),),),
             ),
             child: Row(
               children: [
@@ -333,7 +333,7 @@ class _ActionBtn extends StatelessWidget {
                 style: TextStyle(
                     color: color,
                     fontSize: 13,
-                    fontWeight: FontWeight.w500)),
+                    fontWeight: FontWeight.w500,),),
           ],
         ),
       ),

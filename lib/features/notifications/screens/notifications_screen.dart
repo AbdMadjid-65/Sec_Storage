@@ -104,10 +104,14 @@ class NotificationsScreen extends ConsumerWidget {
                       final isUnread = !(item['isRead'] as bool? ?? false);
                       final type = item['type'] as String? ?? 'file_viewed';
                       final fileName = item['fileName'] as String? ?? 'file';
-                      final actor = (item['actor'] as Map<String, dynamic>? ?? const {})['name'] as String? ?? 'Someone';
-                      final ts = item['timestamp'] as Timestamp?;
+                      final actor = item['actorName'] as String? ??
+                          (item['actor'] as Map<String, dynamic>? ?? const {})['name'] as String? ??
+                          'Someone';
+                      final ts = item['timestamp'] as Timestamp? ?? item['createdAt'] as Timestamp?;
                       final time = _formatTime(ts?.toDate());
                       final meta = _meta(type);
+                      final title = item['title'] as String? ?? meta.$4;
+                      final body = item['body'] as String? ?? '$actor ${meta.$5} "$fileName"';
                       return Container(
                     decoration: BoxDecoration(
                       color: isUnread ? PriVaultColors.surfaceLight : const Color(0xFF111118),
@@ -143,7 +147,7 @@ class NotificationsScreen extends ConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    meta.$4,
+                                    title,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 15,
@@ -152,7 +156,7 @@ class NotificationsScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '$actor ${meta.$5} "$fileName"',
+                                    body,
                                     style: const TextStyle(
                                       color: PriVaultColors.textHint,
                                       fontSize: 13,
@@ -215,9 +219,16 @@ class NotificationsScreen extends ConsumerWidget {
       case 'file_downloaded':
         return (Icons.download_rounded, Colors.cyanAccent, Colors.cyanAccent, 'File Downloaded', 'downloaded');
       case 'file_commented':
+      case 'new_comment':
         return (Icons.comment_rounded, Colors.orangeAccent, Colors.orangeAccent, 'File Commented', 'commented on');
       case 'file_shared_with_user':
         return (Icons.share_rounded, Colors.indigoAccent, Colors.indigoAccent, 'File Shared', 'shared');
+      case 'friend_request':
+        return (Icons.person_add_rounded, Colors.purpleAccent, Colors.purpleAccent, 'Friend request', 'sent');
+      case 'friend_accepted':
+        return (Icons.check_circle_rounded, Colors.greenAccent, Colors.greenAccent, 'Friend accepted', 'accepted');
+      case 'share_expired':
+        return (Icons.link_off_rounded, Colors.amberAccent, Colors.amberAccent, 'Share expired', 'expired');
       case 'file_viewed':
       default:
         return (Icons.visibility_rounded, Colors.greenAccent, Colors.greenAccent, 'File Viewed', 'viewed');

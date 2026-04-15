@@ -405,7 +405,7 @@ class _ShareDialogState extends ConsumerState<ShareDialog> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: DropdownButtonFormField<String>(
-        value: _permission,
+        initialValue: _permission,
         decoration: const InputDecoration(
           labelText: 'Permission',
           border: InputBorder.none,
@@ -453,7 +453,7 @@ class _ShareDialogState extends ConsumerState<ShareDialog> {
             const SizedBox(height: 16),
             teamsAsync.when(
               data: (teams) => DropdownButtonFormField<String>(
-                value: _selectedTeamId,
+                initialValue: _selectedTeamId,
                 hint: const Text('Select team'),
                 items: teams
                     .map(

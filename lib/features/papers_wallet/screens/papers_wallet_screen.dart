@@ -398,7 +398,7 @@ class PapersWalletScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 items: _typeLabels.entries.map((e) =>
                   DropdownMenuItem(value: e.key, child: Text(e.value)),
                 ).toList(),

@@ -6,13 +6,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pri_vault/features/notifications/notification_providers.dart';
 import 'package:pri_vault/core/api/api_client.dart';
 import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/core/router/app_router.dart';
 import 'package:pri_vault/core/encryption/crypto_utils.dart';
 import 'package:pri_vault/features/auth/providers/profile_provider.dart';
 import 'package:pri_vault/features/files/providers/files_provider.dart';
-import 'package:pri_vault/features/files/screens/files_screen.dart';
 import 'package:pri_vault/features/files/screens/file_detail_screen.dart';
 import 'package:pri_vault/features/setup/widgets/plan_selection_sheet.dart';
 import 'package:pri_vault/features/sharing/providers/sharing_provider.dart';
@@ -104,13 +104,6 @@ final dashboardStatsProvider =
     return 0;
   });
 
-  final recentDocs = allDocs.take(10).map((doc) {
-    final data = Map<String, dynamic>.from(doc.data());
-    data['id'] = doc.id;
-    data['user_id'] = uid;
-    return data;
-  }).toList();
-
   final storageMaxBytes = userData['storageMaxBytes'] ?? userData['storage_max_bytes'] ?? 3221225472;
 
   return {
@@ -120,7 +113,6 @@ final dashboardStatsProvider =
     },
     'categories': cats,
     'total_files': allDocs.length,
-    'recent_files': recentDocs,
   };
 });
 
@@ -235,11 +227,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ],
         ),
         actions: [
-          // (#5) Notification bell — no badge since there's no real notification system yet
-          IconButton(
-            onPressed: () => context.push(AppRoutes.notifications),
-            icon: const Icon(
-                Icons.notifications_none_rounded, color: Colors.white,),
+          Consumer(
+            builder: (context, ref, _) {
+              final unread = ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    onPressed: () => context.push(AppRoutes.notifications),
+                    icon: const Icon(
+                      Icons.notifications_none_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (unread > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: const BoxDecoration(
+                          color: PriVaultColors.error,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                        child: Text(
+                          unread > 9 ? '9+' : '$unread',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           const SizedBox(width: 8),
         ],
@@ -285,10 +306,6 @@ class _DashboardContent extends ConsumerWidget {
     final storageUsedBytes = storage['storage_used_bytes'] as int? ?? 0;
     final storageMaxBytes =
         storage['storage_max_bytes'] as int? ?? 3221225472;
-    final usedPercentage =
-        storageMaxBytes > 0
-            ? ((storageUsedBytes / storageMaxBytes) * 100).clamp(0.0, 100.0)
-            : 0.0;
     final usedDisplay = _formatSize(storageUsedBytes);
 
     // (#3) Real category data
@@ -299,62 +316,10 @@ class _DashboardContent extends ConsumerWidget {
     final videosCat = categories['videos'] ?? {'count': 0, 'bytes': 0};
     final musicCat = categories['music'] ?? {'count': 0, 'bytes': 0};
 
-    // (#6) Recent files
-    final recentFiles =
-        stats['recent_files'] as List<Map<String, dynamic>>? ?? [];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // (#1) Banner REMOVED — nothing here
-
-        // (#2) Statistics Section
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Statistics',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  '${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year.toString().substring(2)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: PriVaultColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '${usedPercentage.toStringAsFixed(1)}%',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const Text(
-                  'Used',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: PriVaultColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
 
         // (#2) Donut Chart — real proportions
         SizedBox(
@@ -387,6 +352,13 @@ class _DashboardContent extends ConsumerWidget {
                     'Used',
                     style: TextStyle(
                       fontSize: 14,
+                      color: PriVaultColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    'of ${_formatSize(storageMaxBytes)}',
+                    style: const TextStyle(
+                      fontSize: 12,
                       color: PriVaultColors.textSecondary,
                     ),
                   ),
@@ -464,59 +436,23 @@ class _DashboardContent extends ConsumerWidget {
               bytes: musicCat['bytes']!,
               icon: Icons.music_note,
               gradient: [Colors.cyan, Colors.lightBlue],
-              tabName: 'Other',
+              tabName: 'Music',
             ),
           ],
         ),
         const SizedBox(height: 32),
 
-        // (#6) Recently Used Files Section
-        if (recentFiles.isNotEmpty) ...[
-          const Text(
-            'Recently Used',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+        // Recent — horizontal story row (Firestore stream)
+        const Text(
+          'Recent',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 120,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: recentFiles.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final fileData = recentFiles[index];
-                return _RecentFileCard(fileData: fileData);
-              },
-            ),
-          ),
-        ] else ...[
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: PriVaultColors.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: PriVaultColors.cardBorder),
-            ),
-            child: const Column(
-              children: [
-                Icon(Icons.history_rounded,
-                    size: 40, color: PriVaultColors.textHint,),
-                SizedBox(height: 12),
-                Text(
-                  'No recently used files yet',
-                  style: TextStyle(
-                    color: PriVaultColors.textSecondary,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
+        const SizedBox(height: 12),
+        const _RecentStoryRow(),
 
         const SizedBox(height: 100), // Bottom nav padding
       ],
@@ -547,11 +483,7 @@ class _DashboardContent extends ConsumerWidget {
   }) {
     return GestureDetector(
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => FilesScreen(initialTab: tabName),
-          ),
-        );
+        context.go(AppRoutes.files, extra: {'initialTab': tabName});
       },
       child: Container(
         decoration: BoxDecoration(
@@ -644,6 +576,93 @@ class _DashboardContent extends ConsumerWidget {
   }
 }
 
+class _RecentStoryRow extends ConsumerWidget {
+  const _RecentStoryRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const SizedBox.shrink();
+    return SizedBox(
+      height: 100,
+      child: Stack(
+        children: [
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(uid)
+                .collection('files')
+                .where('isDeleted', isEqualTo: false)
+                .orderBy('updatedAt', descending: true)
+                .limit(10)
+                .snapshots(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snap.hasError) {
+                return const Center(
+                  child: Text(
+                    'Could not load recent files',
+                    style: TextStyle(color: PriVaultColors.textHint, fontSize: 12),
+                  ),
+                );
+              }
+              final docs = snap.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'No items yet',
+                    style: TextStyle(color: PriVaultColors.textHint, fontSize: 13),
+                  ),
+                );
+              }
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (var i = 0; i < docs.length; i++) ...[
+                      Builder(
+                        builder: (context) {
+                          final data = Map<String, dynamic>.from(docs[i].data());
+                          data['id'] = docs[i].id;
+                          data['user_id'] = uid;
+                          return _RecentFileCard(fileData: data);
+                        },
+                      ),
+                      if (i < docs.length - 1) const SizedBox(width: 10),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 48,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      PriVaultColors.background.withValues(alpha: 0),
+                      PriVaultColors.background,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // (#6) Recent file card widget
 class _RecentFileCard extends ConsumerWidget {
   final Map<String, dynamic> fileData;
@@ -694,7 +713,6 @@ class _RecentFileCard extends ConsumerWidget {
     final mime = (fileData['mimeType'] ??
         fileData['mime_type'] ??
         'application/octet-stream') as String;
-    final size = (fileData['sizeBytes'] ?? fileData['size_bytes'] ?? 0) as int;
 
     return FutureBuilder<String>(
       future: _getDisplayName(ref),
@@ -720,47 +738,38 @@ class _RecentFileCard extends ConsumerWidget {
               debugPrint('RecentFileCard nav error: $e');
             }
           },
-          child: Container(
-            width: 100,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: PriVaultColors.surfaceLight,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: PriVaultColors.cardBorder),
-            ),
+          child: SizedBox(
+            width: 80,
+            height: 100,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: _getFileColor(mime).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    _getFileIcon(mime),
-                    color: _getFileColor(mime),
-                    size: 22,
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: _getFileColor(mime).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: PriVaultColors.cardBorder),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        _getFileIcon(mime),
+                        color: _getFileColor(mime),
+                        size: 28,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _formatSize(size),
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 10,
-                    color: PriVaultColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
                   ),
                 ),
               ],

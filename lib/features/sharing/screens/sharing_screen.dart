@@ -50,7 +50,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen>
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white),
+                    color: Colors.white,),
               ),
             ),
 
@@ -163,7 +163,7 @@ class _ManagedSharesList extends ConsumerWidget {
           const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
           child: Text('Error: $e',
-              style: const TextStyle(color: Colors.white))),
+              style: const TextStyle(color: Colors.white),),),
     );
   }
 }
@@ -187,7 +187,7 @@ class _ShareCard extends ConsumerWidget {
         ? Colors.blueAccent
         : isUser
             ? Colors.tealAccent
-            : PriVaultColors.accent;
+            : PriVaultColors.primary;
 
     // Status color
     final statusColor = isRevoked
@@ -261,7 +261,7 @@ class _ShareCard extends ConsumerWidget {
                       _formatDate(share.createdAt),
                       style: const TextStyle(
                           color: PriVaultColors.textHint,
-                          fontSize: 11),
+                          fontSize: 11,),
                     ),
                   ],
                 ),
@@ -277,14 +277,14 @@ class _ShareCard extends ConsumerWidget {
             children: [
               if (isLink)
                 const _InfoChip(
-                    icon: Icons.public_rounded, label: 'Public link'),
+                    icon: Icons.public_rounded, label: 'Public link',),
               if (isUser && share.sharedWithEmail != null)
                 _InfoChip(
                     icon: Icons.email_outlined,
-                    label: share.sharedWithEmail!),
+                    label: share.sharedWithEmail!,),
               if (!isLink && !isUser)
                 const _InfoChip(
-                    icon: Icons.group_rounded, label: 'Team'),
+                    icon: Icons.group_rounded, label: 'Team',),
               const SizedBox(width: 8),
               _InfoChip(
                 icon: share.permission == 'download'
@@ -301,15 +301,15 @@ class _ShareCard extends ConsumerWidget {
           // ── Row 3: expiry ─────────────────────────────────
           Row(
             children: [
-              Icon(Icons.schedule_rounded,
-                  size: 13, color: PriVaultColors.textHint),
+              const Icon(Icons.schedule_rounded,
+                  size: 13, color: PriVaultColors.textHint,),
               const SizedBox(width: 4),
               Text(
                 share.expiresAt == null
                     ? 'No expiry'
                     : 'Expires ${_formatDate(share.expiresAt)}',
                 style: const TextStyle(
-                    color: PriVaultColors.textHint, fontSize: 12),
+                    color: PriVaultColors.textHint, fontSize: 12,),
               ),
             ],
           ),
@@ -321,7 +321,7 @@ class _ShareCard extends ConsumerWidget {
             decoration: BoxDecoration(
               border: Border(
                   top: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.06))),
+                      color: Colors.white.withValues(alpha: 0.06),),),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -342,7 +342,7 @@ class _ShareCard extends ConsumerWidget {
                         style: TextStyle(
                             color: statusColor,
                             fontSize: 12,
-                            fontWeight: FontWeight.w500)),
+                            fontWeight: FontWeight.w500,),),
                   ],
                 ),
 
@@ -359,7 +359,7 @@ class _ShareCard extends ConsumerWidget {
                           final link =
                               'https://privault.app/s/${share.id}';
                           Clipboard.setData(
-                              ClipboardData(text: link));
+                              ClipboardData(text: link),);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Link copied'),
@@ -391,7 +391,7 @@ class _ShareCard extends ConsumerWidget {
   }
 
   Future<void> _confirmRevoke(
-      BuildContext context, WidgetRef ref, Share share) async {
+      BuildContext context, WidgetRef ref, Share share,) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -399,7 +399,7 @@ class _ShareCard extends ConsumerWidget {
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Revoke Access?',
-            style: TextStyle(color: Colors.white)),
+            style: TextStyle(color: Colors.white),),
         content: const Text(
           'This will immediately disable access for all recipients. This cannot be undone.',
           style: TextStyle(color: PriVaultColors.textSecondary),
@@ -408,11 +408,11 @@ class _ShareCard extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel',
-                style: TextStyle(color: PriVaultColors.textHint)),
+                style: TextStyle(color: PriVaultColors.textHint),),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: PriVaultColors.error),
+                backgroundColor: PriVaultColors.error,),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Revoke'),
           ),
@@ -451,7 +451,7 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(label,
           style: TextStyle(
-              color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+              color: color, fontSize: 11, fontWeight: FontWeight.w600,),),
     );
   }
 }
@@ -472,7 +472,7 @@ class _InfoChip extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-                color: PriVaultColors.textSecondary, fontSize: 12)),
+                color: PriVaultColors.textSecondary, fontSize: 12,),),
       ],
     );
   }
@@ -510,7 +510,7 @@ class _ActionButton extends StatelessWidget {
                 style: TextStyle(
                     color: color,
                     fontSize: 12,
-                    fontWeight: FontWeight.w500)),
+                    fontWeight: FontWeight.w500,),),
           ],
         ),
       ),
@@ -559,7 +559,7 @@ class _EmptyState extends StatelessWidget {
               style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 15),
+                  fontSize: 15,),
             ),
             const SizedBox(height: 8),
             Text(
@@ -567,7 +567,7 @@ class _EmptyState extends StatelessWidget {
                   ? 'Open a file and tap Share to get started'
                   : 'Files others share with you will appear here',
               style: const TextStyle(
-                  color: PriVaultColors.textHint, fontSize: 12),
+                  color: PriVaultColors.textHint, fontSize: 12,),
               textAlign: TextAlign.center,
             ),
           ],

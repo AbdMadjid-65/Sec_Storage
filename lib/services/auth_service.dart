@@ -25,6 +25,9 @@ class AuthService {
   Future<Map<String, dynamic>> signUp({
     required String email,
     required String password,
+    required String firstName,
+    required String lastName,
+    required String displayName,
     String? phoneNumber,
     String accountType = 'regular',
   }) async {
@@ -34,6 +37,19 @@ class AuthService {
       password: password,
     );
     final user = credential.user!;
+
+    final taken = await _firestore
+        .collection('users')
+        .where('displayName', isEqualTo: displayName.trim())
+        .limit(1)
+        .get();
+    if (taken.docs.isNotEmpty) {
+      await user.delete();
+      throw FirebaseAuthException(
+        code: 'username-taken',
+        message: 'Username is already taken',
+      );
+    }
 
     // 2. Generate salt and derive master key (client-side)
     final salt = KeyDerivation.generateSalt();
@@ -51,7 +67,9 @@ class AuthService {
     final userDoc = {
       'uid': user.uid,
       'email': email,
-      'displayName': null,
+      'firstName': firstName.trim(),
+      'lastName': lastName.trim(),
+      'displayName': displayName.trim(),
       if (phoneNumber != null) 'phoneNumber': phoneNumber,
       'photoURL': null,
       'accountType': accountType,

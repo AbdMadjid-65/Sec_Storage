@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/core/encryption/crypto_utils.dart';
 
@@ -19,13 +20,45 @@ import 'package:pri_vault/features/trash/screens/trash_screen.dart';
 import 'package:pri_vault/features/sharing/screens/share_dialog.dart';
 import 'package:pri_vault/models/folder.dart';
 import 'package:pri_vault/models/file_metadata.dart';
+import 'package:pri_vault/models/share_models.dart';
+
+bool _mimeMatchesFilter(String mime, String tab) {
+  final m = mime.toLowerCase();
+  switch (tab) {
+    case 'All':
+      return true;
+    case 'Images':
+      return m.startsWith('image/');
+    case 'Documents':
+      return m.startsWith('application/pdf') ||
+          m.contains('word') ||
+          m.contains('msword') ||
+          m.contains('spreadsheet') ||
+          m.contains('presentation') ||
+          m.startsWith('text/');
+    case 'Videos':
+      return m.startsWith('video/');
+    case 'Music':
+      return m.startsWith('audio/');
+    default:
+      return true;
+  }
+}
 
 class FilesScreen extends ConsumerStatefulWidget {
   final String? folderId;
   final String? folderName;
   final String? initialTab;
+  /// `my` | `sharedBy` | `sharedWith`
+  final String? initialFilesScope;
 
-  const FilesScreen({super.key, this.folderId, this.folderName, this.initialTab});
+  const FilesScreen({
+    super.key,
+    this.folderId,
+    this.folderName,
+    this.initialTab,
+    this.initialFilesScope,
+  });
 
   @override
   ConsumerState<FilesScreen> createState() => _FilesScreenState();
@@ -36,11 +69,32 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
   bool _isUploading = false;
   String _viewMode = 'grid';
   late String _activeTab;
+  late String _filesScope;
 
   @override
   void initState() {
     super.initState();
     _activeTab = widget.initialTab ?? 'All';
+    _filesScope = widget.initialFilesScope ?? 'my';
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
+    if (extra == null) return;
+    final tab = extra['initialTab'] as String?;
+    final scope = extra['filesScope'] as String?;
+    var changed = false;
+    if (tab != null && tab != _activeTab) {
+      _activeTab = tab;
+      changed = true;
+    }
+    if (scope != null && scope != _filesScope) {
+      _filesScope = scope;
+      changed = true;
+    }
+    if (changed && mounted) setState(() {});
   }
 
   Future<void> _handleCreateFolder() async {
@@ -124,11 +178,42 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
     }
   }
 
+  Widget _scopePill(String label, String scope) {
+    final sel = _filesScope == scope;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: () => setState(() => _filesScope = scope),
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: sel ? PriVaultColors.primary : PriVaultColors.surface2,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: sel ? PriVaultColors.primary : PriVaultColors.cardBorder,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: sel ? Colors.white : PriVaultColors.textSecondary,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final foldersAsync = ref.watch(currentFoldersProvider(widget.folderId));
     final filesAsync = ref.watch(currentFilesProvider(widget.folderId));
     final pathAsync = ref.watch(folderPathProvider(widget.folderId));
+    final atRoot = widget.folderId == null;
+    final showMy = !atRoot || _filesScope == 'my';
 
     return Scaffold(
       backgroundColor: PriVaultColors.background,
@@ -187,6 +272,8 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
         onRefresh: () async {
           ref.invalidate(currentFoldersProvider(widget.folderId));
           ref.invalidate(currentFilesProvider(widget.folderId));
+          ref.invalidate(ownerSharesProvider);
+          ref.invalidate(sharedWithMeLiveProvider);
         },
         child: CustomScrollView(
           slivers: [
@@ -197,6 +284,20 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (atRoot) ...[
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _scopePill('My Files', 'my'),
+                            _scopePill('Shared by me', 'sharedBy'),
+                            _scopePill('Shared with me', 'sharedWith'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (showMy) ...[
                     // Search Bar
                     GestureDetector(
                       onTap: () => Navigator.of(context).push(
@@ -283,7 +384,7 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
-                              children: ['All', 'Images', 'Documents', 'Videos', 'Other'].map((tab) {
+                              children: ['All', 'Images', 'Documents', 'Videos', 'Music'].map((tab) {
                                 final isActive = tab == _activeTab;
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
@@ -345,12 +446,14 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
+                    ],
                   ],
                 ),
               ),
             ),
 
             // Folders Header
+            if (showMy)
             foldersAsync.when(
               data: (folders) => folders.isEmpty
                   ? const SliverToBoxAdapter(child: SizedBox.shrink())
@@ -368,6 +471,7 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
             ),
 
             // Folders Section
+            if (showMy)
             foldersAsync.when(
               data: (folders) => folders.isEmpty
                   ? const SliverToBoxAdapter(child: SizedBox.shrink())
@@ -407,6 +511,7 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
             ),
 
             // Files Header
+            if (showMy)
             filesAsync.when(
               data: (files) => files.isEmpty
                   ? const SliverToBoxAdapter(child: SizedBox.shrink())
@@ -424,10 +529,32 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
             ),
 
             // Files Section
+            if (showMy)
             filesAsync.when(
-              data: (files) => files.isEmpty && !foldersAsync.hasValue
-                  ? _buildEmptyState()
-                  : SliverPadding(
+              data: (files) {
+                final folders = foldersAsync.valueOrNull ?? [];
+                final filtered = files
+                    .where((f) => _mimeMatchesFilter(f.mimeType, _activeTab))
+                    .toList();
+                if (files.isEmpty && folders.isEmpty) {
+                  return _buildEmptyState();
+                }
+                if (filtered.isEmpty) {
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(
+                        child: Text(
+                          files.isEmpty
+                              ? 'No files in this folder yet'
+                              : 'No files match this filter',
+                          style: const TextStyle(color: PriVaultColors.textSecondary),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return SliverPadding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       sliver: _viewMode == 'grid'
                           ? SliverGrid(
@@ -438,20 +565,21 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
                                 mainAxisSpacing: 12,
                               ),
                               delegate: SliverChildBuilderDelegate(
-                                (context, index) => _FileTile(file: files[index], isGrid: true),
-                                childCount: files.length,
+                                (context, index) => _FileTile(file: filtered[index], isGrid: true),
+                                childCount: filtered.length,
                               ),
                             )
                           : SliverList(
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) => Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
-                                  child: _FileTile(file: files[index], isGrid: false),
+                                  child: _FileTile(file: filtered[index], isGrid: false),
                                 ),
-                                childCount: files.length,
+                                childCount: filtered.length,
                               ),
                             ),
-                    ),
+                );
+              },
               loading: () => const SliverToBoxAdapter(
                 child: SizedBox.shrink(),
               ),
@@ -461,35 +589,44 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
                 ),
               ),
             ),
+            if (!showMy)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  child: _SharedFilesScopeContent(scope: _filesScope),
+                ),
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: 120)), // Padding for FAB
           ],
         ),
       ),
-      floatingActionButton: Container(
-        margin: const EdgeInsets.only(bottom: 16, right: 8),
-        child: FloatingActionButton.extended(
-          onPressed: () => _showUploadOptions(context),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          label: const SizedBox.shrink(),
-          icon: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: PriVaultColors.primaryGradient,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: PriVaultColors.primary.withValues(alpha: 0.5),
-                  blurRadius: 20,
-                  spreadRadius: 2,
+      floatingActionButton: showMy
+          ? Container(
+              margin: const EdgeInsets.only(bottom: 16, right: 8),
+              child: FloatingActionButton.extended(
+                onPressed: () => _showUploadOptions(context),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                label: const SizedBox.shrink(),
+                icon: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: PriVaultColors.primaryGradient,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: PriVaultColors.primary.withValues(alpha: 0.5),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
                 ),
-              ],
-            ),
-            child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-          ),
-        ),
-      ),
+              ),
+            )
+          : null,
       floatingActionButtonAnimator: FloatingActionButtonAnimator.scaling,
     );
   }
@@ -550,6 +687,149 @@ class _FilesScreenState extends ConsumerState<FilesScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SharedFilesScopeContent extends ConsumerWidget {
+  final String scope;
+
+  const _SharedFilesScopeContent({required this.scope});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (scope == 'sharedBy') {
+      return ref.watch(ownerSharesProvider).when(
+            data: (rows) {
+              if (rows.isEmpty) {
+                return _emptyBox('Nothing you\'ve shared yet');
+              }
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: rows.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, i) {
+                  final share = rows[i].$1;
+                  final file = rows[i].$2;
+                  if (file == null) {
+                    return ListTile(
+                      title: Text('Share ${share.id}', style: const TextStyle(color: PriVaultColors.textPrimary)),
+                      subtitle: const Text('File unavailable', style: TextStyle(color: PriVaultColors.textHint)),
+                    );
+                  }
+                  return _SharedFileRow(file: file, share: share);
+                },
+              );
+            },
+            loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+            error: (e, _) => Text('Error: $e', style: const TextStyle(color: PriVaultColors.error)),
+          );
+    }
+    return ref.watch(sharedWithMeLiveProvider).when(
+          data: (items) {
+            if (items.isEmpty) {
+              return _emptyBox('No files shared with you yet');
+            }
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, i) {
+                final sf = items[i];
+                return _SharedFileRow(file: sf.file, share: sf.parentShare);
+              },
+            );
+          },
+          loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+          error: (e, _) => Text('Error: $e', style: const TextStyle(color: PriVaultColors.error)),
+        );
+  }
+
+  Widget _emptyBox(String msg) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        children: [
+          const Icon(Icons.folder_shared_rounded, size: 48, color: PriVaultColors.textHint),
+          const SizedBox(height: 12),
+          Text(msg, textAlign: TextAlign.center, style: const TextStyle(color: PriVaultColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SharedFileRow extends ConsumerWidget {
+  final FileMetadata file;
+  final Share share;
+
+  const _SharedFileRow({
+    required this.file,
+    required this.share,
+  });
+
+  Future<String> _name(WidgetRef ref) async {
+    if (file.encryptedName.isEmpty) return 'File';
+    try {
+      final vault = ref.read(vaultServiceProvider);
+      final encryption = ref.read(encryptionServiceProvider);
+      final seedBase64 = await vault.getMasterKeySeed();
+      if (seedBase64 == null) return 'Encrypted file';
+      final masterKey = CryptoUtils.fromBase64(seedBase64);
+      final decryptedBytes = await encryption.decrypt(
+        ciphertext: CryptoUtils.fromBase64(file.encryptedName),
+        key: masterKey,
+      );
+      return String.fromCharCodes(decryptedBytes);
+    } catch (_) {
+      return 'Encrypted file';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<String>(
+      future: _name(ref),
+      builder: (context, snap) {
+        final name = snap.data ?? '…';
+        return Material(
+          color: PriVaultColors.surface2,
+          borderRadius: BorderRadius.circular(16),
+          child: ListTile(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: PriVaultColors.cardBorder),
+            ),
+            leading: const Icon(Icons.insert_drive_file_rounded, color: PriVaultColors.primary),
+            title: Text(name, style: const TextStyle(color: PriVaultColors.textPrimary)),
+            subtitle: Text(
+              share.type == 'link' ? 'Link share' : 'Shared',
+              style: const TextStyle(color: PriVaultColors.textHint, fontSize: 12),
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.share_rounded, color: PriVaultColors.primary, size: 22),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => ShareDialog(file: file, decryptedName: name),
+                );
+              },
+            ),
+            onTap: () {
+              if (!snap.hasData) return;
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FileViewerScreen(file: file, displayName: name),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -781,19 +1061,44 @@ class _FileTile extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [PriVaultColors.primary.withValues(alpha: 0.2), PriVaultColors.secondary.withValues(alpha: 0.05)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  Stack(
+                    children: [
+                      Container(
+                        height: 80,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [PriVaultColors.primary.withValues(alpha: 0.2), PriVaultColors.secondary.withValues(alpha: 0.05)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Icon(_getFileIcon(name), color: PriVaultColors.primary, size: 32),
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Icon(_getFileIcon(name), color: PriVaultColors.primary, size: 32),
-                    ),
+                      if (!file.isVaultFile && snapshot.hasData)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: IconButton(
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black.withValues(alpha: 0.45),
+                              minimumSize: const Size(32, 32),
+                              padding: EdgeInsets.zero,
+                            ),
+                            icon: const Icon(Icons.share_rounded, size: 18, color: Colors.white),
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => ShareDialog(file: file, decryptedName: name),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
                   ),
                   const Spacer(),
                   Text(
@@ -893,6 +1198,18 @@ class _FileTile extends ConsumerWidget {
                     ],
                   ),
                 ),
+                if (!file.isVaultFile)
+                  IconButton(
+                    icon: const Icon(Icons.share_rounded, color: PriVaultColors.primary, size: 22),
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => ShareDialog(file: file, decryptedName: name),
+                      );
+                    },
+                  ),
                 IconButton(
                   icon: const Icon(Icons.more_vert_rounded, color: PriVaultColors.textHint),
                   onPressed: () => _showFileActions(context, ref, name),

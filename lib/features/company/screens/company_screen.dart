@@ -678,7 +678,7 @@ class _CompanyDetailView extends ConsumerWidget {
               TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email')),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: role,
+                initialValue: role,
                 items: const [
                   DropdownMenuItem(value: 'admin', child: Text('Admin')),
                   DropdownMenuItem(value: 'manager', child: Text('Manager')),

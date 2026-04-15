@@ -26,6 +26,9 @@ class SignupScreen extends ConsumerStatefulWidget {
 }
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -81,6 +84,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -88,9 +94,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Future<void> _handleSignup() async {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final username = _usernameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final confirm = _confirmPasswordController.text;
+
+    final fn = validateRequired(firstName, 'First name');
+    if (fn != null) { _showError(fn); return; }
+    final ln = validateRequired(lastName, 'Last name');
+    if (ln != null) { _showError(ln); return; }
+    final ue = validateUsername(username);
+    if (ue != null) { _showError(ue); return; }
 
     final emailError = validateEmail(email);
     if (emailError != null) { _showError(emailError); return; }
@@ -108,6 +124,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     await ref.read(authStateProvider.notifier).signUp(
           email: email,
           password: password,
+          firstName: firstName,
+          lastName: lastName,
+          displayName: username,
           phoneNumber: _phoneNumber,
           accountType: 'regular',
         );
@@ -154,7 +173,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
       backgroundColor: PriVaultColors.error,
-    ));
+    ),);
   }
 
   @override
@@ -185,7 +204,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 'Join PriVault today',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    fontSize: 16, color: PriVaultColors.textSecondary),
+                    fontSize: 16, color: PriVaultColors.textSecondary,),
               ),
               const SizedBox(height: 32),
 
@@ -198,6 +217,28 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               _OrDivider(),
               const SizedBox(height: 24),
 
+              PriVaultTextField(
+                controller: _firstNameController,
+                label: 'First name',
+                hintText: 'First name',
+                prefixIcon: const Icon(Icons.badge_outlined, color: PriVaultColors.textHint),
+              ),
+              const SizedBox(height: 16),
+              PriVaultTextField(
+                controller: _lastNameController,
+                label: 'Last name',
+                hintText: 'Last name',
+                prefixIcon: const Icon(Icons.badge_outlined, color: PriVaultColors.textHint),
+              ),
+              const SizedBox(height: 16),
+              PriVaultTextField(
+                controller: _usernameController,
+                label: 'Username',
+                hintText: 'Unique username',
+                prefixIcon: const Icon(Icons.alternate_email_rounded, color: PriVaultColors.textHint),
+              ),
+              const SizedBox(height: 16),
+
               // ── Email ────────────────────────────────────────
               PriVaultTextField(
                 controller: _emailController,
@@ -205,7 +246,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 hintText: 'Email address',
                 keyboardType: TextInputType.emailAddress,
                 prefixIcon: const Icon(Icons.email_outlined,
-                    color: PriVaultColors.textHint),
+                    color: PriVaultColors.textHint,),
                 onSubmitted: (_) => FocusScope.of(context).nextFocus(),
               ),
               const SizedBox(height: 16),
@@ -224,7 +265,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 decoration: InputDecoration(
                   hintText: 'Phone number',
                   hintStyle: const TextStyle(
-                      color: PriVaultColors.textHint, fontSize: 14),
+                      color: PriVaultColors.textHint, fontSize: 14,),
                   filled: true,
                   fillColor: PriVaultColors.surface,
                   border: OutlineInputBorder(
@@ -238,10 +279,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: const BorderSide(
-                        color: PriVaultColors.primary, width: 1.5),
+                        color: PriVaultColors.primary, width: 1.5,),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 16),
+                      horizontal: 16, vertical: 16,),
                 ),
                 dropdownTextStyle:
                     const TextStyle(color: Colors.white, fontSize: 15),
@@ -267,7 +308,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 hintText: 'Password (min. 10 characters)',
                 obscureText: _obscurePassword,
                 prefixIcon: const Icon(Icons.lock_outline,
-                    color: PriVaultColors.textHint),
+                    color: PriVaultColors.textHint,),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePassword
@@ -304,7 +345,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 hintText: 'Confirm password',
                 obscureText: _obscureConfirmPassword,
                 prefixIcon: const Icon(Icons.lock_outline,
-                    color: PriVaultColors.textHint),
+                    color: PriVaultColors.textHint,),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscureConfirmPassword
@@ -313,7 +354,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     color: PriVaultColors.textHint,
                   ),
                   onPressed: () => setState(() =>
-                      _obscureConfirmPassword = !_obscureConfirmPassword),
+                      _obscureConfirmPassword = !_obscureConfirmPassword,),
                 ),
                 onSubmitted: (_) => _handleSignup(),
               ),
@@ -335,7 +376,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     'Already have an account? ',
                     style: TextStyle(
                         color: PriVaultColors.textSecondary,
-                        fontSize: 14),
+                        fontSize: 14,),
                   ),
                   GestureDetector(
                     onTap: () => context.go(AppRoutes.login),
@@ -521,7 +562,7 @@ class _GoogleSignInButton extends StatelessWidget {
           backgroundColor: Colors.white.withValues(alpha: 0.05),
           side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
+              borderRadius: BorderRadius.circular(16),),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         child: Row(
@@ -573,7 +614,7 @@ class _GoogleLogoPainter extends CustomPainter {
       Path()
         ..moveTo(cx, cy)
         ..arcTo(Rect.fromCircle(center: Offset(cx, cy), radius: r),
-            _rad(-10), _rad(130), false)
+            _rad(-10), _rad(130), false,)
         ..close(),
       paint,
     );
@@ -583,7 +624,7 @@ class _GoogleLogoPainter extends CustomPainter {
       Path()
         ..moveTo(cx, cy)
         ..arcTo(Rect.fromCircle(center: Offset(cx, cy), radius: r),
-            _rad(120), _rad(70), false)
+            _rad(120), _rad(70), false,)
         ..close(),
       paint,
     );
@@ -593,7 +634,7 @@ class _GoogleLogoPainter extends CustomPainter {
       Path()
         ..moveTo(cx, cy)
         ..arcTo(Rect.fromCircle(center: Offset(cx, cy), radius: r),
-            _rad(190), _rad(80), false)
+            _rad(190), _rad(80), false,)
         ..close(),
       paint,
     );
@@ -603,7 +644,7 @@ class _GoogleLogoPainter extends CustomPainter {
       Path()
         ..moveTo(cx, cy)
         ..arcTo(Rect.fromCircle(center: Offset(cx, cy), radius: r),
-            _rad(270), _rad(160), false)
+            _rad(270), _rad(160), false,)
         ..close(),
       paint,
     );

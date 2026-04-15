@@ -94,6 +94,9 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
   Future<void> signUp({
     required String email,
     required String password,
+    required String firstName,
+    required String lastName,
+    required String displayName,
     String? phoneNumber,
     String accountType = 'personal',
   }) async {
@@ -103,6 +106,9 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
       final result = await authService.signUp(
         email: email,
         password: password,
+        firstName: firstName,
+        lastName: lastName,
+        displayName: displayName,
         phoneNumber: phoneNumber,
         accountType: accountType,
       );

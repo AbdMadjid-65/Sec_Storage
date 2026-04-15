@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hive/hive.dart';
 import 'package:pri_vault/core/router/app_router.dart';
 import 'package:pri_vault/features/auth/providers/auth_provider.dart';
 import 'package:pri_vault/features/auth/providers/profile_provider.dart';
@@ -20,8 +21,19 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _pauseNotifications = true;
-  bool _darkMode = false;
+  late bool _pauseNotifications;
+
+  @override
+  void initState() {
+    super.initState();
+    final box = Hive.box('settings');
+    _pauseNotifications = box.get('pauseNotifications', defaultValue: false) as bool;
+  }
+
+  void _setPause(bool v) {
+    setState(() => _pauseNotifications = v);
+    Hive.box('settings').put('pauseNotifications', v);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +170,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           trailing: CupertinoSwitch(
                             value: _pauseNotifications,
                             activeTrackColor: Colors.greenAccent.shade400,
-                            onChanged: (val) => setState(() => _pauseNotifications = val),
+                            onChanged: _setPause,
                           ),
                         ),
                         const _SettingsDivider(),
@@ -171,37 +183,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Group 2: Appearance & Language
-                    _SettingsGroup(
-                      children: [
-                        _SettingsRow(
-                          iconBox: const _IconBox(icon: Icons.dark_mode_rounded, color: Colors.blueAccent),
-                          label: 'Dark mode',
-                          trailing: CupertinoSwitch(
-                            value: _darkMode,
-                            activeTrackColor: Colors.greenAccent.shade400,
-                            onChanged: (val) => setState(() => _darkMode = val),
-                          ),
-                        ),
-                        const _SettingsDivider(),
-                        _SettingsRow(
-                          iconBox: const _IconBox(icon: Icons.language_rounded, color: Colors.cyanAccent),
-                          label: 'Language',
-                          trailing: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('English', style: TextStyle(color: PriVaultColors.textHint, fontSize: 14)),
-                              SizedBox(width: 8),
-                              Icon(Icons.chevron_right_rounded, color: PriVaultColors.textHint, size: 20),
-                            ],
-                          ),
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Group 3: Account
+                    // Group 2: Account
                     profileAsync.maybeWhen(
                       data: (profile) {
                         if (profile == null) return const SizedBox.shrink();
@@ -251,7 +233,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         _SettingsRow(
                           iconBox: const _IconBox(icon: Icons.help_outline_rounded, color: Colors.greenAccent),
                           label: 'FAQ',
-                          onTap: () {},
+                          onTap: () => context.push(AppRoutes.faq),
                         ),
                         const _SettingsDivider(),
                         _SettingsRow(

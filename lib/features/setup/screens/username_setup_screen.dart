@@ -27,6 +27,24 @@ class _UsernameSetupScreenState extends ConsumerState<UsernameSetupScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadUsername();
+  }
+
+  Future<void> _loadUsername() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final dn = doc.data()?['displayName'] ?? doc.data()?['display_name'];
+      if (dn != null && mounted) {
+        _usernameController.text = dn.toString();
+      }
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
     _usernameController.dispose();
     super.dispose();
@@ -89,6 +107,7 @@ class _UsernameSetupScreenState extends ConsumerState<UsernameSetupScreen> {
       // Use set + merge to avoid "document not found" errors
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'display_name': username,
+        'displayName': username,
         if (photoUrl != null) 'photoUrl': photoUrl,
       }, SetOptions(merge: true),);
 
@@ -131,10 +150,10 @@ class _UsernameSetupScreenState extends ConsumerState<UsernameSetupScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Set up your profile',
+                'Add a photo (optional) — username is pre-filled from signup',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   color: PriVaultColors.textSecondary,
                 ),
               ),

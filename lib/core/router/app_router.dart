@@ -25,13 +25,16 @@ import 'package:pri_vault/features/auth/screens/forgot_password_screen.dart';
 // Feature screens
 import 'package:pri_vault/features/dashboard/screens/dashboard_screen.dart';
 import 'package:pri_vault/features/files/screens/files_screen.dart';
-import 'package:pri_vault/features/sharing/screens/sharing_screen.dart';
+import 'package:pri_vault/features/chat/screens/chat_screen.dart';
+import 'package:pri_vault/features/chat/screens/chat_detail_screen.dart';
+import 'package:pri_vault/features/chat/screens/add_friend_screen.dart';
 import 'package:pri_vault/features/secure_vault/screens/secure_vault_screen.dart';
 import 'package:pri_vault/features/company/screens/company_screen.dart';
 import 'package:pri_vault/features/papers_wallet/screens/papers_wallet_screen.dart';
 import 'package:pri_vault/features/camscanner/screens/camscanner_screen.dart';
 import 'package:pri_vault/features/audit/screens/audit_logs_screen.dart';
 import 'package:pri_vault/features/settings/screens/settings_screen.dart';
+import 'package:pri_vault/features/settings/screens/faq_screen.dart';
 import 'package:pri_vault/features/trash/screens/trash_screen.dart';
 import 'package:pri_vault/features/notifications/screens/notifications_screen.dart';
 
@@ -49,7 +52,10 @@ class AppRoutes {
   static const String forgotPassword = '/forgot-password';
   static const String home = '/home';
   static const String files = '/files';
-  static const String sharing = '/sharing';
+  static const String chat = '/chat';
+  static const String addFriend = '/add-friend';
+  static const String chatDetail = '/chat-detail';
+  static const String faq = '/faq';
   static const String more = '/more';
   static const String secureVault = '/secure-vault';
   static const String company = '/company';
@@ -125,14 +131,33 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => PriVaultShell(child: child),
         routes: [
           GoRoute(path: AppRoutes.home, pageBuilder: (_, __) => const NoTransitionPage(child: DashboardScreen())),
-          GoRoute(path: AppRoutes.files, pageBuilder: (_, __) => const NoTransitionPage(child: FilesScreen())),
-          GoRoute(path: AppRoutes.sharing, pageBuilder: (_, __) => const NoTransitionPage(child: SharingScreen())),
+          GoRoute(
+            path: AppRoutes.files,
+            pageBuilder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return NoTransitionPage(
+                child: FilesScreen(
+                  initialTab: extra?['initialTab'] as String?,
+                  initialFilesScope: extra?['filesScope'] as String?,
+                ),
+              );
+            },
+          ),
+          GoRoute(path: AppRoutes.chat, pageBuilder: (_, __) => const NoTransitionPage(child: ChatScreen())),
           GoRoute(path: AppRoutes.secureVault, pageBuilder: (_, __) => const NoTransitionPage(child: SecureVaultScreen())),
         ],
       ),
 
       // --- Full-screen feature routes ---
+      GoRoute(
+        path: '${AppRoutes.chatDetail}/:chatId',
+        builder: (context, state) => ChatDetailScreen(
+          chatId: state.pathParameters['chatId']!,
+        ),
+      ),
+      GoRoute(path: AppRoutes.addFriend, builder: (_, __) => const AddFriendScreen()),
       GoRoute(path: AppRoutes.settings, builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: AppRoutes.faq, builder: (_, __) => const FaqScreen()),
       GoRoute(path: AppRoutes.company, builder: (_, __) => const CompanyScreen()),
       GoRoute(path: AppRoutes.editProfile, builder: (_, __) => const EditProfileScreen()),
       GoRoute(path: AppRoutes.papersWallet, builder: (_, __) => const PapersWalletScreen()),

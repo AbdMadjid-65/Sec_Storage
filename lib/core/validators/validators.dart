@@ -26,6 +26,26 @@ String? validatePassword(String? password) {
   return null;
 }
 
+String? validateRequired(String? v, String label) {
+  if (v == null || v.trim().isEmpty) return '$label is required';
+  return null;
+}
+
+/// Username: letters, numbers, underscore, 3–24 chars.
+String? validateUsername(String? username) {
+  if (username == null || username.trim().isEmpty) {
+    return 'Username is required';
+  }
+  final u = username.trim();
+  if (u.length < 3 || u.length > 24) {
+    return 'Username must be 3–24 characters';
+  }
+  if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(u)) {
+    return 'Username can only use letters, numbers, and underscores';
+  }
+  return null;
+}
+
 /// Validates email format.
 String? validateEmail(String? email) {
   if (email == null || email.isEmpty) {

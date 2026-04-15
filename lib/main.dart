@@ -14,6 +14,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:pri_vault/firebase_options.dart';
 import 'package:pri_vault/core/theme/app_theme.dart';
 import 'package:pri_vault/core/router/app_router.dart';
+import 'package:pri_vault/features/notifications/notification_bootstrap.dart';
+import 'package:pri_vault/services/notification_service.dart';
 
 Future<void> main() async {
   try {
@@ -50,6 +52,8 @@ Future<void> main() async {
     // Initialize Hive for encrypted local caching.
     await Hive.initFlutter();
     await Hive.openBox('settings');
+
+    await NotificationService.initLocalNotifications();
 
     // Run the app wrapped in Riverpod ProviderScope.
     runApp(const ProviderScope(child: PriVaultApp()));
@@ -101,7 +105,9 @@ class PriVaultApp extends ConsumerWidget {
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: TextScaler.noScaling),
-          child: child ?? const SizedBox.shrink(),
+          child: NotificationBootstrap(
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );

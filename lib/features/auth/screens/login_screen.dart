@@ -47,7 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(authState.error!),
         backgroundColor: PriVaultColors.error,
-      ));
+      ),);
     } else if (authState.status == AuthStatus.authenticated) {
       context.go(AppRoutes.home);
     }
@@ -63,7 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(authState.error!),
         backgroundColor: PriVaultColors.error,
-      ));
+      ),);
     } else if (authState.status == AuthStatus.authenticated) {
       final isNew =
           ref.read(authStateProvider.notifier).lastGoogleSignInWasNew;
@@ -119,7 +119,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 hintText: 'Email address',
                 keyboardType: TextInputType.emailAddress,
                 prefixIcon: const Icon(Icons.email_outlined,
-                    color: PriVaultColors.textHint),
+                    color: PriVaultColors.textHint,),
                 onSubmitted: (_) => FocusScope.of(context).nextFocus(),
               ),
               const SizedBox(height: 16),
@@ -131,7 +131,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 hintText: 'Password',
                 obscureText: _obscurePassword,
                 prefixIcon: const Icon(Icons.lock_outline,
-                    color: PriVaultColors.textHint),
+                    color: PriVaultColors.textHint,),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePassword
@@ -190,22 +190,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               OutlinedButton.icon(
                 onPressed: null,
                 icon: const Icon(Icons.flutter_dash,
-                    size: 20, color: PriVaultColors.textHint),
+                    size: 20, color: PriVaultColors.textHint,),
                 label: const Text(
                   'Twitter (Coming Soon)',
                   style: TextStyle(
                       color: PriVaultColors.textHint,
                       fontSize: 16,
-                      fontWeight: FontWeight.w500),
+                      fontWeight: FontWeight.w500,),
                 ),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 56),
                   backgroundColor:
                       Colors.white.withValues(alpha: 0.05),
                   side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1)),
+                      color: Colors.white.withValues(alpha: 0.1),),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                      borderRadius: BorderRadius.circular(16),),
                 ),
               ),
               const SizedBox(height: 48),
@@ -217,7 +217,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const Text(
                     "Don't have an account? ",
                     style: TextStyle(
-                        color: PriVaultColors.textSecondary, fontSize: 14),
+                        color: PriVaultColors.textSecondary, fontSize: 14,),
                   ),
                   GestureDetector(
                     onTap: () => context.push(AppRoutes.signup),
@@ -261,17 +261,17 @@ class _GoogleSignInButton extends StatelessWidget {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
-        child: Row(
+        child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Real Google "G" logo drawn with CustomPainter
-            const SizedBox(
+            SizedBox(
               width: 24,
               height: 24,
               child: CustomPaint(painter: _GoogleLogoPainter()),
             ),
-            const SizedBox(width: 12),
-            const Text(
+            SizedBox(width: 12),
+            Text(
               'Continue with Google',
               style: TextStyle(
                 color: Colors.white,
@@ -315,7 +315,7 @@ class _GoogleLogoPainter extends CustomPainter {
     final redPath = Path()
       ..moveTo(cx, cy)
       ..arcTo(Rect.fromCircle(center: Offset(cx, cy), radius: r),
-          -_deg(10), _deg(130), false)
+          -_deg(10), _deg(130), false,)
       ..close();
     canvas.drawPath(redPath, paint);
 
@@ -324,7 +324,7 @@ class _GoogleLogoPainter extends CustomPainter {
     final yellowPath = Path()
       ..moveTo(cx, cy)
       ..arcTo(Rect.fromCircle(center: Offset(cx, cy), radius: r),
-          _deg(120), _deg(70), false)
+          _deg(120), _deg(70), false,)
       ..close();
     canvas.drawPath(yellowPath, paint);
 
@@ -333,7 +333,7 @@ class _GoogleLogoPainter extends CustomPainter {
     final greenPath = Path()
       ..moveTo(cx, cy)
       ..arcTo(Rect.fromCircle(center: Offset(cx, cy), radius: r),
-          _deg(190), _deg(80), false)
+          _deg(190), _deg(80), false,)
       ..close();
     canvas.drawPath(greenPath, paint);
 
@@ -342,7 +342,7 @@ class _GoogleLogoPainter extends CustomPainter {
     final bluePath = Path()
       ..moveTo(cx, cy)
       ..arcTo(Rect.fromCircle(center: Offset(cx, cy), radius: r),
-          _deg(270), _deg(160), false)
+          _deg(270), _deg(160), false,)
       ..close();
     canvas.drawPath(bluePath, paint);
 
@@ -388,7 +388,7 @@ class _OrDivider extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-            child: Container(height: 1, color: PriVaultColors.divider)),
+            child: Container(height: 1, color: PriVaultColors.divider),),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
@@ -401,7 +401,7 @@ class _OrDivider extends StatelessWidget {
           ),
         ),
         Expanded(
-            child: Container(height: 1, color: PriVaultColors.divider)),
+            child: Container(height: 1, color: PriVaultColors.divider),),
       ],
     );
   }

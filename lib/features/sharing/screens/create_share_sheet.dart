@@ -234,7 +234,7 @@ class _PickTypeStep extends StatelessWidget {
         const SizedBox(height: 12),
         _TypeTile(
           icon: Icons.group_rounded,
-          color: PriVaultColors.accent,
+          color: PriVaultColors.primary,
           title: 'Share with Team',
           subtitle: 'Share with a group — same permissions for everyone',
           onTap: () => onPick(_ShareType.team),
@@ -291,16 +291,16 @@ class _TypeTile extends StatelessWidget {
                       style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
-                          fontSize: 14)),
+                          fontSize: 14,),),
                   const SizedBox(height: 2),
                   Text(subtitle,
                       style: const TextStyle(
-                          color: PriVaultColors.textHint, fontSize: 12)),
+                          color: PriVaultColors.textHint, fontSize: 12,),),
                 ],
               ),
             ),
             const Icon(Icons.chevron_right_rounded,
-                color: PriVaultColors.textHint, size: 20),
+                color: PriVaultColors.textHint, size: 20,),
           ],
         ),
       ),
@@ -348,7 +348,7 @@ class _ConfigureStep extends StatelessWidget {
               style: TextStyle(
                   color: PriVaultColors.textSecondary,
                   fontSize: 13,
-                  fontWeight: FontWeight.w500)),
+                  fontWeight: FontWeight.w500,),),
           const SizedBox(height: 8),
           TextField(
             controller: emailController,
@@ -359,16 +359,16 @@ class _ConfigureStep extends StatelessWidget {
               hintStyle:
                   const TextStyle(color: PriVaultColors.textHint),
               prefixIcon: const Icon(Icons.email_outlined,
-                  color: PriVaultColors.textHint, size: 20),
+                  color: PriVaultColors.textHint, size: 20,),
               filled: true,
               fillColor: PriVaultColors.surfaceLight,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none),
+                  borderSide: BorderSide.none,),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(
-                    color: PriVaultColors.primary, width: 1.5),
+                    color: PriVaultColors.primary, width: 1.5,),
               ),
             ),
           ),
@@ -380,7 +380,7 @@ class _ConfigureStep extends StatelessWidget {
               style: TextStyle(
                   color: PriVaultColors.textSecondary,
                   fontSize: 13,
-                  fontWeight: FontWeight.w500)),
+                  fontWeight: FontWeight.w500,),),
           const SizedBox(height: 8),
           TextField(
             controller: teamIdController,
@@ -390,16 +390,16 @@ class _ConfigureStep extends StatelessWidget {
               hintStyle:
                   const TextStyle(color: PriVaultColors.textHint),
               prefixIcon: const Icon(Icons.group_rounded,
-                  color: PriVaultColors.textHint, size: 20),
+                  color: PriVaultColors.textHint, size: 20,),
               filled: true,
               fillColor: PriVaultColors.surfaceLight,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none),
+                  borderSide: BorderSide.none,),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(
-                    color: PriVaultColors.primary, width: 1.5),
+                    color: PriVaultColors.primary, width: 1.5,),
               ),
             ),
           ),
@@ -411,7 +411,7 @@ class _ConfigureStep extends StatelessWidget {
             style: TextStyle(
                 color: PriVaultColors.textSecondary,
                 fontSize: 13,
-                fontWeight: FontWeight.w500)),
+                fontWeight: FontWeight.w500,),),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(4),
@@ -443,7 +443,7 @@ class _ConfigureStep extends StatelessWidget {
             style: TextStyle(
                 color: PriVaultColors.textSecondary,
                 fontSize: 13,
-                fontWeight: FontWeight.w500)),
+                fontWeight: FontWeight.w500,),),
         const SizedBox(height: 8),
         _ExpiryPicker(
           selected: expiresAt,
@@ -460,11 +460,11 @@ class _ConfigureStep extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: PriVaultColors.divider),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: const Text('Back',
-                    style: TextStyle(color: PriVaultColors.textHint)),
+                    style: TextStyle(color: PriVaultColors.textHint),),
               ),
             ),
             const SizedBox(width: 12),
@@ -517,7 +517,7 @@ class _PermOption extends StatelessWidget {
                   size: 16,
                   color: selected
                       ? Colors.white
-                      : PriVaultColors.textHint),
+                      : PriVaultColors.textHint,),
               const SizedBox(width: 6),
               Text(label,
                   style: TextStyle(
@@ -525,7 +525,7 @@ class _PermOption extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       color: selected
                           ? Colors.white
-                          : PriVaultColors.textHint)),
+                          : PriVaultColors.textHint,),),
             ],
           ),
         ),
@@ -626,7 +626,7 @@ class _ConfirmStep extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check_circle_outline_rounded,
-                color: PriVaultColors.success, size: 36),
+                color: PriVaultColors.success, size: 36,),
           ),
         ),
         const SizedBox(height: 16),
@@ -640,7 +640,7 @@ class _ConfirmStep extends StatelessWidget {
           style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
-              fontWeight: FontWeight.w700),
+              fontWeight: FontWeight.w700,),
         ),
         const SizedBox(height: 6),
         Text(
@@ -651,7 +651,7 @@ class _ConfirmStep extends StatelessWidget {
                   : 'Team members can now access this file',
           textAlign: TextAlign.center,
           style: const TextStyle(
-              color: PriVaultColors.textSecondary, fontSize: 13),
+              color: PriVaultColors.textSecondary, fontSize: 13,),
         ),
         const SizedBox(height: 24),
 
@@ -673,14 +673,14 @@ class _ConfirmStep extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         color: PriVaultColors.primary,
-                        fontSize: 12),
+                        fontSize: 12,),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   onPressed: onCopy,
                   icon: const Icon(Icons.copy_rounded,
-                      color: PriVaultColors.primary, size: 20),
+                      color: PriVaultColors.primary, size: 20,),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -696,7 +696,7 @@ class _ConfirmStep extends StatelessWidget {
           onPressed: onDone,
           child: const Text('Done',
               style: TextStyle(
-                  color: PriVaultColors.textHint, fontSize: 14)),
+                  color: PriVaultColors.textHint, fontSize: 14,),),
         ),
       ],
     );
@@ -736,12 +736,12 @@ class _GradientButton extends StatelessWidget {
                   width: 22,
                   height: 22,
                   child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2))
+                      color: Colors.white, strokeWidth: 2,),)
               : Text(label,
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
-                      fontSize: 15)),
+                      fontSize: 15,),),
         ),
       ),
     );

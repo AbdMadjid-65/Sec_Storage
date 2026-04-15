@@ -15,7 +15,6 @@
 // ============================================================
 
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:pri_vault/core/encryption/key_derivation.dart';
